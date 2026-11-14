@@ -1,0 +1,42 @@
+name: One-time NHL watchlist webhook message test
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/send_nhl_watchlist_test.py"
+      - "tests/test_send_nhl_watchlist_test.py"
+      - ".github/workflows/nhl-watchlist-onetime-test.yml"
+  pull_request:
+    paths:
+      - "src/send_nhl_watchlist_test.py"
+      - "tests/test_send_nhl_watchlist_test.py"
+      - ".github/workflows/nhl-watchlist-onetime-test.yml"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-nhl-watchlist-one-time-test
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test no-duplicate and channel identity protections
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_send_nhl_watchlist_test.py' -v
+      - name: Send one test message and persist Discord message receipt
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
+        run: python src/send_nhl_watchlist_test.py
