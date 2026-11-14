@@ -68,7 +68,8 @@ def grade(row, cache, *, fetch=fetch_scoreboard):
             return None
         if event["status"] == "graded":
             return {"actual": event["parity"], "total": event["score_total"],
-                    "source": event["source"]}
+                    "source": event["source"], "home_score": event.get("home_score"),
+                    "away_score": event.get("away_score")}
         return None
     return None
 
@@ -123,7 +124,7 @@ def collect(repo, issues, start, end, now):
                         raise RuntimeError("Recap grade persistence unconfirmed")
             side = row["prediction"]
             results.append({
-                "day": day, "sport": row["sport"],
+                "day": day, "sport": row["sport"], "forecast": row, "outcome": outcome,
                 "starred": row["p_" + side.lower()] >= VERY_HIGH_PROBABILITY,
                 "correct": None if outcome is None else outcome["actual"] == side,
             })
