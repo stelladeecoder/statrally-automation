@@ -1,0 +1,42 @@
+name: Deliver November 14 NHL watchlist to dedicated Discord channel
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/send_nhl_watchlist_today.py"
+      - "tests/test_send_nhl_watchlist_today.py"
+      - ".github/workflows/nhl-watchlist-today-onetime.yml"
+  pull_request:
+    paths:
+      - "src/send_nhl_watchlist_today.py"
+      - "tests/test_send_nhl_watchlist_today.py"
+      - ".github/workflows/nhl-watchlist-today-onetime.yml"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-nhl-watchlist-2026-11-14-single-delivery
+  cancel-in-progress: false
+jobs:
+  delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate source-only single-day NHL watchlist delivery tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p test_send_nhl_watchlist_today.py -v
+      - name: Send original frozen 14-game NHL research slate to #nhl-watchlist
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
+        run: python src/send_nhl_watchlist_today.py
