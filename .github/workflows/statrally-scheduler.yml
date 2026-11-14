@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   gate:
-    if: vars.STATRALLY_SCHEDULER_PAUSED != 'true'
+    if: false # Retired BTTS scheduler; Even/Odd has separate workflows
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
@@ -69,7 +69,7 @@ jobs:
         run: python3 src/m16_scheduler.py complete
   next-check:
     needs: gate
-    if: ${{ always() && !cancelled() && vars.STATRALLY_SCHEDULER_PAUSED != 'true' }}
+    if: false # Prevent self-dispatch continuation of retired BTTS scheduler
     runs-on: ubuntu-latest
     timeout-minutes: 8
     permissions:
