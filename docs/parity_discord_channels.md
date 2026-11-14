@@ -1,17 +1,39 @@
-# NHL posts to a different Discord channel
+# StatRally NHL Discord channel routing
 
-The Even/Odd research beta produces **two independent posts**:
-- Soccer -> `STATRALLY_PARITY_SOCCER_WEBHOOK` if present, otherwise the existing `STATRALLY_PARITY_DISCORD_WEBHOOK` / `STATRALLY_DISCORD_WEBHOOK`.
-- NHL -> **only** `STATRALLY_PARITY_HOCKEY_WEBHOOK`, with no fallback to the soccer webhook.
+The owner's existing NHL channels are **#nhl-watchlist**, **#nhl-picks**,
+and **#nhl-results**. Do not create a fourth hockey channel.
 
-## Owner setup
+| Channel | Intended content | Current live state |
+| --- | --- | --- |
+| `#nhl-watchlist` | Every verified upcoming NHL fixture and research-only EVEN/ODD probabilities, including insufficient-history notices | Implemented; requires owner-supplied webhook |
+| `#nhl-picks` | Selected EVEN/ODD predictions only after an independently validated, calibrated sport-specific model and verified exact sportsbook market/odds | **Disabled**; do not post baseline probabilities as approved picks |
+| `#nhl-results` | Grades for previously recorded NHL forecasts, posted only after verified final scores and separated from sportsbook settlement | Forward results stored and graded in GitHub; **Discord channel posting not yet implemented** |
 
-1. In Discord, create or choose the NHL-only channel, e.g. `#nhl-even-odd`.
-2. In that channel, go to **Edit Channel -> Integrations -> Webhooks -> New Webhook** (requires Manage Webhooks permission). Choose the NHL channel and copy its private URL.
-3. In `stelladeecoder/statrally-automation` go to **Settings -> Secrets and variables -> Actions -> New repository secret** and add `STATRALLY_PARITY_HOCKEY_WEBHOOK` with that URL.
-4. Do **not** paste the webhook into chat, code or README. The soccer webhook may remain unchanged. If you want a dedicated soccer channel too, add `STATRALLY_PARITY_SOCCER_WEBHOOK` from that channel.
-5. Verify channel routing on the next scheduled workflow run. On an already reserved day, the bot deliberately does not resend a duplicate. A failed/uncertain post must be investigated manually, not blindly retried.
+## Channel configuration
 
-Without the dedicated NHL secret, NHL delivery returns `webhook_missing` and **does not send NHL picks to the soccer channel**. Soccer delivery remains independently attempted. A matching NHL and soccer webhook is rejected.
+In Discord, open **Edit Channel → Integrations → Webhooks → New Webhook**
+for the existing `#nhl-watchlist` channel. Copy its URL privately.
 
-These remain experimental, read-only research forecasts and not verified wager recommendations.
+Add it to GitHub repository
+`stelladeecoder/statrally-automation`:
+**Settings → Secrets and variables → Actions → New repository secret**.
+
+- Name: `STATRALLY_NHL_WATCHLIST_WEBHOOK`
+- Value: The private webhook URL for `#nhl-watchlist`
+
+The existing soccer Discord destination remains unchanged.
+
+The generic `STATRALLY_PARITY_HOCKEY_WEBHOOK` secret is deliberately
+**not used** for NHL watchlist posts. No fallback to `#match-watchlist`,
+`#nhl-picks`, or `#nhl-results` occurs when the specific watchlist secret
+is missing. Do not paste webhook secrets in repository files or chat.
+
+Possible future secrets (not yet consumed by production workflows):
+`STATRALLY_NHL_PICKS_WEBHOOK` and `STATRALLY_NHL_RESULTS_WEBHOOK`.
+Do not activate either prematurely. The order of work is verified NHL
+grading and safe results reporting first, then a separately evaluated
+picks publishing policy.
+
+The next verified scheduled run must confirm the intended Discord
+channel. Existing same-day posts are reserved and not blindly
+resent to prevent duplicates.
