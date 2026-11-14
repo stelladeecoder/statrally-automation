@@ -3,7 +3,7 @@
 # ⚽ StatRally
 ### The Edge Is in the Data.
 
-**Soccer insights. BTTS research. Verified results.**
+**Soccer + NHL Even/Odd research. Verified game scores.**
 
 ![Status: Coming Soon](https://img.shields.io/badge/Mobile%20App-Coming%20Soon-0891b2?style=for-the-badge)
 ![Free](https://img.shields.io/badge/Access-Free-16a34a?style=for-the-badge)
@@ -20,29 +20,31 @@ Preview access will be announced here when the app is ready.
 
 ## ⚽ What is StatRally?
 
-StatRally is an independent soccer analytics project for exploring **Both Teams to Score (BTTS)** match predictions and verified results.
+StatRally is an independent sports analytics project. **Soccer and NHL Even/Odd (total-score parity) research beta launched November 14, 2026**, with a successful source-verified workflow and a confirmed Discord research-status message. Predictions are experimental and **not betting recommendations**. The older soccer BTTS research pipeline is retained separately during the transition.
 
 ## ✨ What to expect
 
-- Daily soccer match watchlists across tracked club competitions.
-- Expanding international coverage, including national-team matches.
-- Experimental BTTS YES/NO forecasts and clearly labeled highlights when supported by validated data.
+- Daily **soccer and NHL EVEN/ODD research** reports using publicly accessible scoreboards, with separate competition histories.
+- Initial soccer competition coverage includes men’s leagues (EPL, LaLiga, Bundesliga, Serie A, MLS) and women’s leagues (NWSL, Women’s Champions League), subject to verified fixture availability.
+- Experimental EVEN/ODD probabilities using a historical league baseline. Not validated as a betting edge.
 - Independently verified match outcomes.
 - Daily, weekly and monthly accuracy recaps.
 - Model-performance insights.
 
 The mobile experience is **not yet publicly available**. There is no registration or invitation link at this time.
 
-## 🌍 Expanding international coverage
+## 🏟️ EVEN/ODD research beta
 
-StatRally is extending its research beyond club competitions to include selected international soccer fixtures. Initial live checks confirmed that upcoming international matches can be discovered and some can be independently matched to Polymarket US BTTS markets.
+On November 14, 2026, the multi-sport research pipeline completed a successful production scan with **358 historical final-score records, 15 upcoming fixtures and 15 experimental parity forecasts** across eight configured competitions. Discord acknowledged the research-status message. This is a **research beta**, not an odds-integrated, calibrated, or wager-qualified picks service.
 
-**International scouting is active, but international BTTS forecasts and automatic public picks are not yet enabled.** National-team prediction models require separate historical testing and evaluation before publication. An available market is not the same as a validated prediction.
+View [launch scope and verification limits](docs/parity_soccer_nhl_beta_launch.md). NHL full-game scoreboard parity and 60-minute regulation parity are different contracts; we do not assume sportsbook market equivalence.
+
+Additional sports (NBA, WNBA, college men’s and women’s basketball, NFL, NCAA football and MLB) remain roadmap items, not live integrations.
 
 ## 📊 Research transparency
 
-StatRally predictions are experimental. Historical accuracy does not guarantee future outcomes, and StatRally does not claim a proven betting edge. Match discovery, market availability, and model eligibility are different checks; incomplete feeds must not be presented as confirmed zero-game days. The public app does not place trades or wagers.
+StatRally predictions are experimental. Historical accuracy does not guarantee future outcomes; no proven betting edge or verified parity odds are claimed. Fixture discovery, market availability, model eligibility and successful Discord delivery are separate checks; incomplete feeds must not be presented as confirmed zero-game days. StatRally does not place trades or wagers. Existing BTTS automation remains separate until explicitly migrated.
 
 ---
 
-<sub>© 2026 StatRally. Independent soccer analytics project.</sub>
+<sub>© 2026 StatRally. Independent multi-sport analytics project.</sub>
