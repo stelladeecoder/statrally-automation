@@ -41,7 +41,7 @@ jobs:
       - name: Read live ESPN final scores and upcoming fixtures
         env:
           PYTHONPATH: src
-        run: python src/parity_research.py --history-days 35
+        run: python src/parity_research.py --history-days 21
       - name: Upload audit trail, including all eligible matches and unavailable leagues
         uses: actions/upload-artifact@v4
         with:
