@@ -31,6 +31,22 @@ class EvenOddPicksTests(unittest.TestCase):
             self.assertNotIn("decimal",embed["description"])
             self.assertNotIn("market odds",embed["description"].lower())
             self.assertIn("Experimental",embed["fields"][1]["value"])
+    def test_probability_category_uses_unrounded_selected_side(self):
+        for sport, side, probability, expected in (
+            ("soccer", "ODD", .70, True),
+            ("hockey", "EVEN", .71, True),
+            ("soccer", "ODD", .6999, False),
+        ):
+            with self.subTest(sport=sport, side=side, probability=probability):
+                snap=report()
+                row=next(row for row in snap["forecasts"] if row["sport"]==sport)
+                row["p_"+side.lower()]=probability
+                description=cards(snap,sport,now=NOW)[0]["embeds"][0]["description"]
+                self.assertEqual(f"⭐ **{side}**" in description,expected)
+                self.assertEqual("⭐ 🟨 **VERY HIGH MODEL PROBABILITY · 70%+**" in description,expected)
+                if not expected:
+                    self.assertIn("<70%",description)
+
     def test_tomorrow_not_mislabeled_as_todays_picks(self):
         snap=report()
         snap["forecasts"][1]["kickoff_utc"]="2026-11-16T01:00:00+00:00"
