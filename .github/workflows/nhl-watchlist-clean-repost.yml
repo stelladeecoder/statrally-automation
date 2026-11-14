@@ -37,7 +37,7 @@ jobs:
           python -m unittest discover -s tests -p test_replace_nhl_watchlist_today.py -v
           python -m unittest discover -s tests -p test_parity_sport_delivery.py -v
       - name: Post clean NHL watchlist and remove old probability post
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: false # One-time 2026-11-14 cleanup already confirmed; never rerun it
         env:
           PYTHONPATH: src
           GH_TOKEN: ${{ github.token }}

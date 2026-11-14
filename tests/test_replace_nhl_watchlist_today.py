@@ -31,7 +31,7 @@ class ReplacementTests(unittest.TestCase):
             self.assertNotIn("%",text)
             self.assertNotIn("EVEN ",text)
             self.assertNotIn("ODD ",text)
-            self.assertEqual(text.count("• "),14)
+            self.assertEqual(text.count("• Away"),14)
             second=replace("owner/repo","https://discord.com/api/webhooks/1/x",
                 now=NOW,call=call,sender=lambda *_:self.fail("Duplicate Discord send"),
                 verifier=lambda *_:{"verified":True,"channel_id":EXPECTED_CHANNEL_ID},

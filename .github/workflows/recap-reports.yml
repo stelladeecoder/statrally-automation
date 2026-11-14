@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   recaps:
-    if: ${{ github.event_name == 'schedule' || inputs.publish_discord }}
+    if: false # Retired BTTS recaps; do not mix with Even/Odd metrics
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
