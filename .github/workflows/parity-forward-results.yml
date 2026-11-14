@@ -1,0 +1,40 @@
+name: StatRally Even Odd verified forward results
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 15 * * *"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-parity-forward-ledger
+  cancel-in-progress: false
+jobs:
+  grade:
+    if: vars.STATRALLY_PARITY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify parity forward ledger tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_parity_forward_ledger.py' -v
+      - name: Grade original frozen soccer/NHL predictions against matching ESPN final events
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python src/parity_forward_ledger.py grade --output out/statrally-parity-results.json
+      - name: Save research performance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: statrally-parity-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/statrally-parity-results.json
+          retention-days: 30
+          if-no-files-found: error
