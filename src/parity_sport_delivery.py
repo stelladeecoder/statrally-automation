@@ -51,16 +51,21 @@ def pages(report,sport):
     if not comps:
         raise ValueError("Missing selected sport data")
     total=sum(len(c["fixtures"]) for c in comps)
-    body=[]
-    for comp in comps:
+    active=[comp for comp in comps if comp["fixtures"]]
+    body=[f"**{total} UPCOMING GAMES**  •  {len(active)} active competitions"]
+    # Do not clutter the feed with 0-game leagues. All configured leagues
+    # were still verified in the underlying scan artifact.
+    if not active:
+        body.append("No verified upcoming fixtures in this scan window.")
+    for comp in active:
         label=comp["competition_name"]+(" (Women)" if comp["category"]=="women" else "")
-        body.append(f"**{label}** · {len(comp['fixtures'])} games")
+        body.append("")
+        body.append(f"**{label}**  •  {len(comp['fixtures'])} game"+("s" if len(comp["fixtures"])!=1 else ""))
         for game in comp["fixtures"]:
             timestamp=datetime.fromisoformat(game["kickoff_utc"].replace("Z","+00:00"))
             if timestamp.tzinfo is None:
                 raise ValueError("Unverified kickoff clock")
-            # Watchlists show schedule only. Probabilities and market prices
-            # belong exclusively in approved picks posts, not watchlists.
+            # Watchlists show scheduled games only, never model percentages or odds.
             body.append(f"• {game['away']} @ {game['home']} · <t:{int(timestamp.timestamp())}:t>")
     # Keep complete records, never replace missing rows with 'and N more'.
     batches=[]
@@ -80,10 +85,15 @@ def pages(report,sport):
     for index,description in enumerate(batches,1):
         qualifier=f" · {index}/{len(batches)}" if len(batches)>1 else ""
         payloads.append({"embeds":[{
-            "title":f"{SPORTS[sport]} Watchlist | {report['day_central']} CT{qualifier}",
+            "title":f"{SPORTS[sport]} | DAILY WATCHLIST{qualifier}",
             "description":description,
             "color":BLUE,
-            "footer":{"text":f"{total} upcoming {sport} games · Schedule only · No probabilities or betting odds · Not picks"}
+            "fields":[
+                {"name":"📅 Date (Central)","value":report["day_central"],"inline":True},
+                {"name":"🏟️ Competitions scanned","value":str(len(comps)),"inline":True},
+                {"name":"📊 Scope","value":"Fixture schedule only","inline":True}
+            ],
+            "footer":{"text":"StatRally • Start times shown in your local timezone • No odds or picks"}
         }],"allowed_mentions":{"parse":[]}})
     # Check every fixture appears exactly once, even when paginated.
     all_text="\n".join(p["embeds"][0]["description"] for p in payloads)
