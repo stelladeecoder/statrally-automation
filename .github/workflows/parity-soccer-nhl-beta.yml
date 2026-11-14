@@ -1,0 +1,63 @@
+name: StatRally soccer + NHL Even Odd research beta
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/parity_research.py"
+      - "src/parity_discord.py"
+      - "tests/test_parity_research.py"
+      - ".github/workflows/parity-soccer-nhl-beta.yml"
+  schedule:
+    - cron: "15 9 * * *"
+  pull_request:
+    paths:
+      - "src/parity_research.py"
+      - "src/parity_discord.py"
+      - "tests/test_parity_research.py"
+      - ".github/workflows/parity-soccer-nhl-beta.yml"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-parity-soccer-nhl-beta
+  cancel-in-progress: false
+jobs:
+  scan:
+    if: vars.STATRALLY_PARITY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run parity-specific safety unit tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_parity_research.py' -v
+      - name: Read live ESPN final scores and upcoming fixtures
+        env:
+          PYTHONPATH: src
+        run: python src/parity_research.py --history-days 21
+      - name: Upload audit trail, including all eligible matches and unavailable leagues
+        uses: actions/upload-artifact@v4
+        with:
+          name: statrally-parity-research-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/statrally-parity-research.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Validate research-only Discord preview without sending
+        env:
+          PYTHONPATH: src
+        run: python src/parity_discord.py --report out/statrally-parity-research.json
+      - name: Send early research beta update to configured StatRally Discord, on main only
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STATRALLY_PARITY_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_PARITY_DISCORD_WEBHOOK || secrets.STATRALLY_DISCORD_WEBHOOK }}
+        run: python src/parity_discord.py --report out/statrally-parity-research.json --send
