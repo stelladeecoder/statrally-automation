@@ -121,6 +121,7 @@ def parse_scoreboard(key,payload,source_url):
                     raise ValueError("Completed game missing integer scores")
                 total=sum(int(s) for s in scores)
                 record.update(status="graded",score_total=total,
+                              home_score=int(scores[0]),away_score=int(scores[1]),
                               parity="EVEN" if total%2==0 else "ODD")
         elif state=="pre" and name in ("STATUS_SCHEDULED","STATUS_PRE_GAME","STATUS_PREVIEW"):
             record["status"]="pregame"
