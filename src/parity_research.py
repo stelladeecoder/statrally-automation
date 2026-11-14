@@ -6,9 +6,11 @@ No contract availability, prices, fees or profitable edge has been validated.
 import argparse
 import json
 import math
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
 
 CENTRAL=ZoneInfo("America/Chicago")
@@ -41,12 +43,18 @@ def fetch_scoreboard(key,start,end):
         raise ValueError("ESPN requires an individually requested scoreboard date")
     date_arg=f"{start:%Y%m%d}"
     url=f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{code}/scoreboard?dates={date_arg}&limit=500"
-    try:
-        with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"StatRallyParityResearch/0.1"}),timeout=25) as response:
-            payload=json.load(response)
-    except Exception as exc:
-        raise RuntimeError(f"Scoreboard failed {key} {date_arg}: {type(exc).__name__} {getattr(exc,'code','')}") from exc
-    return parse_scoreboard(key,payload,url)
+    # Retry bounded transient TLS/network or server failures, not bad requests.
+    for attempt in range(3):
+        try:
+            with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"StatRallyParityResearch/0.1"}),timeout=18) as response:
+                payload=json.load(response)
+            return parse_scoreboard(key,payload,url)
+        except (URLError,TimeoutError,OSError) as exc:
+            if isinstance(exc,HTTPError) and exc.code not in (429,500,502,503,504):
+                raise RuntimeError(f"Permanent scoreboard error {key} {date_arg}: HTTP {exc.code}") from exc
+            if attempt==2:
+                raise RuntimeError(f"Scoreboard failed {key} {date_arg} after 3 attempts: {type(exc).__name__} {getattr(exc,'code','')}") from exc
+            time.sleep(1+attempt)
 
 def parse_scoreboard(key,payload,source_url):
     """Verify ESPN event and score identities; quarantine incomplete scores."""
