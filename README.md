@@ -25,7 +25,7 @@ StatRally is an independent sports analytics project. **Soccer and NHL Even/Odd 
 ## ✨ What to expect
 
 - Daily **soccer and NHL EVEN/ODD research** reports using publicly accessible scoreboards, with separate competition histories.
-- Initial soccer competition coverage includes men’s leagues (EPL, LaLiga, Bundesliga, Serie A, MLS) and women’s leagues (NWSL, Women’s Champions League), subject to verified fixture availability.
+- Soccer fixture discovery now covers **13 men's competitions** (Premier League, Bundesliga, LaLiga, Serie A, Ligue 1, Eredivisie, Liga Portugal, Brasileirão Série A, MLS, Liga MX, Argentine Primera División, UEFA Champions League, UEFA Europa League) and **two women's competitions** (NWSL, UEFA Women's Champions League). Coverage means configured source scans, not a guarantee of fixtures each day.
 - Experimental EVEN/ODD probabilities using a historical league baseline. Not validated as a betting edge.
 - Independently verified match outcomes.
 - Daily, weekly and monthly accuracy recaps.
@@ -36,6 +36,10 @@ The mobile experience is **not yet publicly available**. There is no registratio
 ## 🏟️ EVEN/ODD research beta
 
 On November 14, 2026, the multi-sport research pipeline completed a successful production scan with **358 historical final-score records, 15 upcoming fixtures and 15 experimental parity forecasts** across eight configured competitions. Discord acknowledged the research-status message. This is a **research beta**, not an odds-integrated, calibrated, or wager-qualified picks service.
+
+**Coverage validation (November 14):** the 16-competition soccer/NHL research scan passed on the expansion branch, finding **18 upcoming fixtures**, with **568 historical final scores** available inside the 21-day research scan. These totals cover all sports combined. An independently graded, matchup-specific parity model has **not** been promoted. The originally frozen November 14 Discord snapshot had fewer configured leagues and remains historical evidence; we do not retroactively alter its issued predictions.
+
+**Clear repository ownership:** The private [`statrally-even-odd-models`](https://github.com/stelladeecoder/statrally-even-odd-models) repository owns the NEW experimental soccer parity model work, historical 13-league scoring data and validation. It also retains legacy BTTS model artifacts unchanged. The public `statrally-automation` repository controls scheduling, fixture scans, Discord watchlists, immutable historical receipts/results, and the unreleased dashboard. A temporary parity baseline still exists here solely for research; **the private model has not been connected to the public prediction workflow**. No betting picks or market prices are published by the baseline. NHL watchlists are schedule-only.
 
 View [launch scope and verification limits](docs/parity_soccer_nhl_beta_launch.md) and [verified market-rule research](docs/parity_market_rules.md). NHL full-game scoreboard parity and 60-minute regulation parity are different contracts; we do not assume sportsbook market equivalence.
 

@@ -15,6 +15,17 @@ def event(event_id,date="2026-11-14T20:00:00Z",status="STATUS_SCHEDULED",complet
         "competitions":[{"competitors":[h,a]}]}
 
 class ParityTests(unittest.TestCase):
+    def test_all_thirteen_legacy_mens_leagues_plus_womens_coverage(self):
+        legacy={
+          "eng.1","ger.1","esp.1","ita.1","fra.1","ned.1","por.1",
+          "bra.1","usa.1","mex.1","arg.1","uefa.champions","uefa.europa"
+        }
+        men={v[1] for v in LEAGUES.values() if v[0]=="soccer" and v[3]=="men"}
+        women={v[1] for v in LEAGUES.values() if v[0]=="soccer" and v[3]=="women"}
+        self.assertEqual(men,legacy)
+        self.assertEqual(women,{"usa.nwsl","uefa.wchampions"})
+        self.assertEqual(len(LEAGUES),16)
+
     def test_soccer_even_zero_and_odd(self):
         payload={"events":[event(1,completed=True,status="STATUS_FULL_TIME",
                                   home_score=0,away_score=0),
