@@ -10,7 +10,7 @@ from parity_research import CENTRAL
 
 WORKFLOWS = {
     "parity-model-evidence-sync.yml": ("Picks", time(7, 15)),
-    "parity-recaps.yml": ("Individual results and recaps", time(9, 15)),
+    "parity-recaps.yml": ("Individual results and recaps", time(21, 15)),
 }
 FAILED = {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}
 
