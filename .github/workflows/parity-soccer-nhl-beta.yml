@@ -9,6 +9,9 @@ on:
       - "tests/test_parity_research.py"
       - "src/parity_forward_ledger.py"
       - "tests/test_parity_forward_ledger.py"
+      - "src/parity_public_snapshot.py"
+      - "tests/test_parity_public_snapshot.py"
+      - "tests/test_parity_page.py"
       - ".github/workflows/parity-soccer-nhl-beta.yml"
   schedule:
     - cron: "15 9 * * *"
@@ -44,6 +47,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_parity_research.py' -v
           python -m unittest discover -s tests -p 'test_parity_forward_ledger.py' -v
+          python -m unittest discover -s tests -p 'test_parity_public_snapshot.py' -v
+          python -m unittest discover -s tests -p 'test_parity_page.py' -v
       - name: Read live ESPN final scores and upcoming fixtures
         env:
           PYTHONPATH: src
