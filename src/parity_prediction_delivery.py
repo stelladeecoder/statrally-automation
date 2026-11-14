@@ -11,7 +11,9 @@ from datetime import datetime,timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from parity_discord import github,discord_send,BOT
+from m13_discord_embeds import COMPETITIONS,WATCHLIST_FLAGS
 from parity_model_handoff_consumer import stamp
+from parity_research import LEAGUES
 
 BLUE=0x3498db
 VERY_HIGH_PROBABILITY=0.70
@@ -71,7 +73,15 @@ def cards(projection,sport,*,now=None):
         estimate=f"{p:.1%}"
         if not starred and estimate=="70.0%":
             estimate="<70%"
-        lines.extend([f"**{row['away']} @ {row['home']}** · <t:{int(kickoff.timestamp())}:t>",
+        fixture=f"**{row['away']} @ {row['home']}** · <t:{int(kickoff.timestamp())}:t>"
+        if sport=="soccer":
+            league=row["league"]
+            competition=COMPETITIONS.get(league.removeprefix("soccer_"))
+            if competition is None:
+                competition=LEAGUES.get(league,("","","Soccer"))[2]
+            flag=WATCHLIST_FLAGS.get(competition, {"NWSL":"🇺🇸", "Women's Champions League":"🏆"}.get(competition,"⚽"))
+            fixture=f"{flag} {fixture} · {competition}"
+        lines.extend([fixture,
                       f"{marker}**{side}**  ·  Model estimate {estimate}"])
         if starred:
             lines.append(VERY_HIGH_CATEGORY)
