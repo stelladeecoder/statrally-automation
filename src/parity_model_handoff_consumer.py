@@ -31,7 +31,7 @@ LEAGUES={
 ALLOWED_STATUS={"research_forecast_not_promoted","team_identity_unconfirmed",
                 "kickoff_passed_without_pregame_model_issue",
                 "insufficient_history","insufficient_team_history",
-                "nonpositive_scoring_prior"}
+                "nonpositive_scoring_prior","insufficient_calibration"}
 
 def stamp(value):
     if not isinstance(value,str):
@@ -68,6 +68,17 @@ def validate(data,run,*,now=None):
         or type(data.get("input_fixture_count")) is not int
         or not 0<=data["input_fixture_count"]<=300):
         raise ValueError("Expected fresh verified 13-league fixture source")
+    counts=data.get("input_sport_counts")
+    if (not isinstance(counts,dict)
+        or set(counts)!={"soccer","hockey"}
+        or any(type(x) is not int or x<0 for x in counts.values())
+        or sum(counts.values())!=data["input_fixture_count"]):
+        raise ValueError("Invalid soccer/NHL fixture counts")
+    nhl_check=data.get("nhl_evaluation")
+    if (not isinstance(nhl_check,dict)
+        or nhl_check.get("status") not in
+        ("evaluated_not_promoted","insufficient_nhl_history","insufficient_nhl_calibration","not_supplied")):
+        raise ValueError("Invalid NHL research validation")
     exported=stamp(data.get("exported_at"))
     created=stamp(run.get("created_at"))
     issued=stamp(data.get("input_issued_at"))
@@ -98,17 +109,33 @@ def validate(data,run,*,now=None):
         event=candidate.get("id")
         key=candidate.get("league")
         status=candidate.get("status")
-        if (not isinstance(event,str) or not event.startswith("espn:soccer:")
-            or event in seen or key not in LEAGUES or status not in ALLOWED_STATUS):
+        is_nhl=(key=="nhl" and isinstance(event,str)
+                and event.startswith("espn:hockey:nhl:"))
+        is_soccer=(key in LEAGUES and isinstance(event,str)
+                   and event.startswith("espn:soccer:"))
+        if ((not is_nhl and not is_soccer)
+            or event in seen or status not in ALLOWED_STATUS):
             raise ValueError("Untrusted candidate fixture")
         seen.add(event)
-        item={"id":event,"league":key,"status":status}
+        item={"id":event,"league":key,"status":status,
+              "sport":"hockey" if is_nhl else "soccer"}
         if status=="research_forecast_not_promoted":
-            if (candidate.get("model")!=data["model"] or
+            expected_model=("nhl_team_parity_regularized_platt_v1"
+                            if is_nhl else data["model"])
+            if (candidate.get("model")!=expected_model or
                 candidate.get("calibrated") is not False or
                 candidate.get("market_verified") is not False or
                 candidate.get("qualified_bet") is not False):
                 raise ValueError("Unapproved candidate forecast")
+            if is_nhl:
+                if nhl_check["status"]!="evaluated_not_promoted" or nhl_check.get("n_test",0)<20:
+                    raise ValueError("NHL calibration evidence missing")
+            else:
+                evidence=data["holdout_by_league"][key]
+                if (candidate.get("calibration_evaluated") is not True
+                    or evidence.get("calibration_status")!="evaluated_not_promoted"
+                    or evidence.get("calibration_n_test",0)<20):
+                    raise ValueError("Soccer calibration evidence missing")
             even,odd=candidate.get("p_even"),candidate.get("p_odd")
             if (type(even) not in (int,float) or type(odd) not in (int,float)
                 or not math.isfinite(even) or not math.isfinite(odd)
@@ -118,7 +145,17 @@ def validate(data,run,*,now=None):
             kickoff=stamp(candidate.get("kickoff_utc"))
             if modeled!=exported or modeled>=kickoff:
                 raise ValueError("Post-kickoff or mismatched model issue time")
+            side="EVEN" if even>=.5 else "ODD"
+            if candidate.get("prediction")!=side:
+                raise ValueError("Inconsistent EVEN/ODD classification")
+            home,away=candidate.get("home"),candidate.get("away")
+            if (not isinstance(home,str) or not home.strip()
+                or not isinstance(away,str) or not away.strip() or home==away
+                or len(home)>120 or len(away)>120):
+                raise ValueError("Missing public source team names")
             item.update(p_even=round(even,6),p_odd=round(odd,6),
+                        prediction=side,home=home,away=away,
+                        model=expected_model,calibration_evaluated=True,
                         issued_at=modeled.isoformat(),kickoff_utc=kickoff.isoformat())
         else:
             if "p_even" in candidate or "p_odd" in candidate:
@@ -131,6 +168,7 @@ def validate(data,run,*,now=None):
         "model":data["model"],"input_day":data["input_day"],
         "input_source":data["input_source"],
         "input_fixture_count":data["input_fixture_count"],
+        "input_sport_counts":counts,
         "exported_at":exported.isoformat(),
         "status":"research_only_not_promoted",
         "calibrated":False,"markets_verified":False,"qualified_bets":0,
