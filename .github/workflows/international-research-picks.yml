@@ -21,6 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   international:
+    if: false # Retired BTTS delivery, preserved for historical audit
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
