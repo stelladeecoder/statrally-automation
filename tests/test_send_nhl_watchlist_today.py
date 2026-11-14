@@ -66,6 +66,6 @@ class SameDayNHL(unittest.TestCase):
             send_today("owner/repo","https://discord.com/api/webhooks/10/secret",
                   now=NOW,verifier=lambda *_args:{"verified":True,"channel_id":"123"})
         with self.assertRaisesRegex(ValueError,"restricted"):
-            send_today("owner/repo","x",now=datetime(2026,11,15,tzinfo=timezone.utc))
+            send_today("owner/repo","x",now=datetime(2026,11,15,18,tzinfo=timezone.utc))
 if __name__=="__main__":
     unittest.main()
