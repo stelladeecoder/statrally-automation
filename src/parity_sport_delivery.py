@@ -135,6 +135,16 @@ def send_sport(report,sport,repo,webhook,*,call=github,sender=discord_send):
              "message_ids":receipts,"title":title},sort_keys=True)})
     return {"sport":sport,"status":"confirmed","delivered":len(receipts),"pages":len(payloads)}
 
+def destinations(environment):
+    """NHL must use an explicitly different Discord webhook from soccer."""
+    soccer=(environment.get("STATRALLY_PARITY_SOCCER_WEBHOOK")
+            or environment.get("STATRALLY_PARITY_DISCORD_WEBHOOK",""))
+    hockey=environment.get("STATRALLY_PARITY_HOCKEY_WEBHOOK","")
+    # Do not fall back to the shared channel for hockey.
+    if soccer and hockey and soccer.strip()==hockey.strip():
+        raise ValueError("Soccer and NHL webhooks cannot be identical")
+    return {"soccer":soccer,"hockey":hockey}
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--report",default="out/statrally-parity-research.json")
@@ -147,11 +157,9 @@ def main():
         return
     repo=os.environ["GITHUB_REPOSITORY"]
     failed=[]
+    routes=destinations(os.environ)
     for sport in SPORTS:
-        # Separate webhooks if configured, otherwise the existing StatRally
-        # destination. Never copy the incoming channel webhook into output.
-        webhook=(os.environ.get(f"STATRALLY_PARITY_{sport.upper()}_WEBHOOK")
-                 or os.environ.get("STATRALLY_PARITY_DISCORD_WEBHOOK",""))
+        webhook=routes[sport]
         try:
             status=send_sport(report,sport,repo,webhook)
             print("PARITY_SPORT_DELIVERY="+json.dumps(status,sort_keys=True))

@@ -1,5 +1,5 @@
 import unittest
-from parity_sport_delivery import pages,send_sport,BLUE
+from parity_sport_delivery import pages,send_sport,destinations,BLUE
 from parity_research import LEAGUES
 from parity_discord import RESERVATION
 def comp(key,games):
@@ -42,6 +42,24 @@ class SportDeliveryTests(unittest.TestCase):
         data=report()
         data["competitions"][1]["fixtures"][0]["forecast"]["qualified_bet"]=True
         with self.assertRaises(ValueError):pages(data,"hockey")
+    def test_nhl_never_falls_back_to_soccer_channel(self):
+        routes=destinations({"STATRALLY_PARITY_DISCORD_WEBHOOK":"https://discord.com/api/webhooks/soccer"})
+        self.assertEqual(routes["soccer"],"https://discord.com/api/webhooks/soccer")
+        self.assertEqual(routes["hockey"],"")
+    def test_nhl_dedicated_channel_and_identical_webhook_rejection(self):
+        soccer="https://discord.com/api/webhooks/soccer"
+        hockey="https://discord.com/api/webhooks/hockey"
+        config={"STATRALLY_PARITY_DISCORD_WEBHOOK":soccer,
+                "STATRALLY_PARITY_HOCKEY_WEBHOOK":hockey}
+        self.assertEqual(destinations(config),{"soccer":soccer,"hockey":hockey})
+        config["STATRALLY_PARITY_HOCKEY_WEBHOOK"]=soccer
+        with self.assertRaisesRegex(ValueError,"cannot be identical"):
+            destinations(config)
+    def test_explicit_soccer_channel_takes_precedence(self):
+        config={"STATRALLY_PARITY_SOCCER_WEBHOOK":"soccer-channel",
+                "STATRALLY_PARITY_DISCORD_WEBHOOK":"old-channel",
+                "STATRALLY_PARITY_HOCKEY_WEBHOOK":"hockey-channel"}
+        self.assertEqual(destinations(config)["soccer"],"soccer-channel")
     def test_independent_delivery_and_duplicate_gate(self):
         data=report()
         records=[]
