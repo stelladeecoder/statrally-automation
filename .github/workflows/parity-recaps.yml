@@ -71,6 +71,7 @@ jobs:
         env:
           PYTHONPATH: src
           GH_TOKEN: ${{ github.token }}
+          PERFORMANCE_TEST: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Send requested private model performance test' }}
           STATRALLY_MODEL_PERFORMANCE_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_MODEL_PERFORMANCE_DISCORD_WEBHOOK }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = schedule ]; then
@@ -83,4 +84,35 @@ jobs:
               exit 0
             fi
           fi
-          python src/parity_model_performance.py
+          if [ "$PERFORMANCE_TEST" = true ]; then
+            python - <<'PY'
+          import os
+          from datetime import date
+          from parity_model_performance import report
+          from parity_recaps import deliver, history
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          day = date(2026, 11, 14)
+          rows = []
+          for sport, probability, outcomes in [
+              ("soccer", .53, ("ODD", "EVEN", "ODD")),
+              ("hockey", .725, ("ODD", "ODD", "EVEN", "ODD")),
+          ]:
+              for actual in outcomes:
+                  rows.append({
+                      "day": day, "sport": sport, "starred": probability >= .70,
+                      "correct": actual == "ODD", "outcome": {"actual": actual},
+                      "forecast": {"prediction": "ODD", "p_odd": probability,
+                                   "p_even": 1 - probability, "model": "sample"},
+                  })
+          message = report(rows, day)
+          for embed in message["embeds"]:
+              embed["title"] = "TEST POST · " + embed["title"]
+              embed["description"] = "*Illustrative data*\n\n" + embed["description"]
+          issues = list(history(repo, "/issues?state=all"))
+          deliver(repo, issues, "StatRally model performance test | " + os.environ["GITHUB_RUN_ID"],
+                  os.environ["STATRALLY_MODEL_PERFORMANCE_DISCORD_WEBHOOK"], message)
+          PY
+          else
+            python src/parity_model_performance.py
+          fi
