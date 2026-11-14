@@ -1,0 +1,53 @@
+name: StatRally Even/Odd Discord recaps
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/parity-recaps.yml"
+      - "src/parity_recaps.py"
+      - "tests/test_parity_recaps.py"
+  schedule:
+    # Cover 8:15 AM Central in standard and daylight time.
+    - cron: "15 13,14 * * *"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-evenodd-recaps
+  cancel-in-progress: false
+jobs:
+  recaps:
+    if: vars.STATRALLY_PARITY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify recap formatting and scoring
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p test_parity_recaps.py -v
+      - name: Grade archived picks and publish Discord recaps
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          STATRALLY_DAILY_RESULTS_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_DAILY_RESULTS_DISCORD_WEBHOOK }}
+          STATRALLY_WEEKLY_RECAP_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_WEEKLY_RECAP_DISCORD_WEBHOOK }}
+          STATRALLY_MONTHLY_RECAP_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_MONTHLY_RECAP_DISCORD_WEBHOOK }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            python - <<'PY' > "$RUNNER_TEMP/recap-hour"
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          print(datetime.now(ZoneInfo("America/Chicago")).hour)
+          PY
+            if [ "$(cat "$RUNNER_TEMP/recap-hour")" -lt 8 ]; then
+              exit 0
+            fi
+          fi
+          python src/parity_recaps.py
