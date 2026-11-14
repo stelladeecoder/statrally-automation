@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime, time, timezone
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 from parity_discord import RESERVATION, discord_send, github, reservation
 from parity_research import CENTRAL
@@ -19,6 +20,23 @@ def missed(runs, now, deadline):
         return False
     return not any(datetime.fromisoformat(run["created_at"]).astimezone(CENTRAL).date()
                    == now.date() for run in runs)
+
+
+
+def dispatch_recovery(repo, workflow):
+    """Dispatch a manual recovery run when GitHub misses a scheduled trigger."""
+    req = Request(
+        f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches",
+        data=json.dumps({"ref": "main"}).encode(),
+        method="POST",
+        headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                 "Accept": "application/vnd.github+json",
+                 "Content-Type": "application/json",
+                 "X-GitHub-Api-Version": "2022-11-28"},
+    )
+    with urlopen(req, timeout=25) as response:
+        if response.status != 204:
+            raise RuntimeError(f"Recovery rejected: HTTP {response.status}")
 
 
 def notify(repo, label, detail, key, link):
@@ -55,10 +73,20 @@ def main():
         print("Admin alert monitor deployed and webhook configured")
         return
     for workflow, (label, deadline) in WORKFLOWS.items():
-        response = github("GET", repo, f"/actions/workflows/{workflow}/runs?event=schedule&branch=main&per_page=20")
-        if missed(response["workflow_runs"], now, deadline):
-            notify(repo, label, f"No scheduled run recorded for {now.date()} Central.",
-                   f"{workflow} | {now.date()}", f"https://github.com/{repo}/actions/workflows/{workflow}")
+        response = github("GET", repo, f"/actions/workflows/{workflow}/runs?branch=main&per_page=100")
+        runs = [run for run in response["workflow_runs"]
+                if run.get("event") in ("schedule", "workflow_dispatch")]
+        if missed(runs, now, deadline):
+            try:
+                dispatch_recovery(repo, workflow)
+                print(f"Recovery dispatched: {label} ({now.date()} Central)")
+            except Exception as exc:
+                notify(repo, label,
+                       f"Scheduled run missing for {now.date()} Central; recovery failed "
+                       f"({type(exc).__name__}). Manual action required.",
+                       f"{workflow} | {now.date()}",
+                       f"https://github.com/{repo}/actions/workflows/{workflow}")
+                raise
 
 
 if __name__ == "__main__":
