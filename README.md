@@ -2,7 +2,10 @@
 
 # ⚽ StatRally
 #
-### Milestone 3: Private model research connection
+#
+**Milestone 3 refreshed soccer fixture handoff:** Private parity model research now scans **13 men's leagues independently** for upcoming ESPN pregame fixtures instead of depending on the November 14 original forecast archive, which predates wider league coverage. Public model-evidence ingestion **rejects legacy frozen-archive inputs**, verifies private run provenance and exact source fixture counts, and archives research results without changing the immutable prior slate or publishing picks. Unknown teams remain unconfirmed; a new successful workflow scan must establish real fixture counts before any claim of live prediction delivery.
+
+## Milestone 3: Private model research connection
 
 StatRally's private `statrally-even-odd-models` repository exports timestamped soccer parity **research forecasts** with source-run and historical-validation provenance. The public [model evidence workflow](.github/workflows/parity-model-evidence-sync.yml) authenticates read-only to its private Actions artifact, validates SHA/run identity, 13-league research coverage, prematch timing and zero-bet gates, and records a sanitized **research-only** GitHub Issue. [Owner token setup and verification](docs/parity_model_handoff.md) are mandatory before claiming the cross-repository sync is live. No private datasets are copied, no model is automatically promoted, and no Discord watchlist, picks, results or legacy BTTS workflow is changed by this connection.
 
