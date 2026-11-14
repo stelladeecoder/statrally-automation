@@ -1,7 +1,12 @@
 <div align="center">
 
 # ⚽ StatRally
-### The Edge Is in the Data.
+#
+### Milestone 3: Private model research connection
+
+StatRally's private `statrally-even-odd-models` repository exports timestamped soccer parity **research forecasts** with source-run and historical-validation provenance. The public [model evidence workflow](.github/workflows/parity-model-evidence-sync.yml) authenticates read-only to its private Actions artifact, validates SHA/run identity, 13-league research coverage, prematch timing and zero-bet gates, and records a sanitized **research-only** GitHub Issue. [Owner token setup and verification](docs/parity_model_handoff.md) are mandatory before claiming the cross-repository sync is live. No private datasets are copied, no model is automatically promoted, and no Discord watchlist, picks, results or legacy BTTS workflow is changed by this connection.
+
+## The Edge Is in the Data.
 
 **Soccer + NHL Even/Odd research. Verified game scores.**
 
