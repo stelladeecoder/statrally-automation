@@ -37,7 +37,7 @@ offer, executable quote, profitable edge, premium subscriptions, or wagers.
 
 The ESPN endpoints are publicly reachable, but **not guaranteed stable or
 licensed for redistribution**. The prediction baseline has no verified
-betting advantage. The 35-day research window is not a full-season
+betting advantage. The 21-day research window is not a full-season
 multi-year holdout. No Polymarket US, BetMGM or other sportsbook
 **specific Even/Odd contract** has been located and matched to an
 actual fixture at executable pregame odds. The live workflow itself
@@ -65,7 +65,7 @@ fees and validation.
 
 ```sh
 PYTHONPATH=src python -m unittest discover -s tests -p test_parity_research.py -v
-PYTHONPATH=src python src/parity_research.py --history-days 35
+PYTHONPATH=src python src/parity_research.py --history-days 21
 PYTHONPATH=src python src/parity_discord.py --report out/statrally-parity-research.json
 ```
 
