@@ -60,21 +60,7 @@ jobs:
           STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
           STATRALLY_PARITY_SOCCER_WEBHOOK: ${{ secrets.STATRALLY_PARITY_SOCCER_WEBHOOK }}
           STATRALLY_PARITY_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_PARITY_DISCORD_WEBHOOK }}
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          report = json.loads(Path("out/model-handoff-evidence.json").read_text())
-          if report["input_day"] == "2026-11-14":
-              path = Path("src/parity_prediction_delivery.py")
-              original = path.read_text()
-              key = "    issue=_reserve(repo,key,call=call)"
-              if original.count(key) != 1:
-                  raise RuntimeError("Cannot apply one-time repost reservation")
-              path.write_text(original.replace(key, '    key += " | formatting repost"\n' + key))
-          PY
-          python src/parity_prediction_delivery.py --input out/model-handoff-evidence.json --send
+        run: python src/parity_prediction_delivery.py --input out/model-handoff-evidence.json --send
       - name: Save verified model handoff audit
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
