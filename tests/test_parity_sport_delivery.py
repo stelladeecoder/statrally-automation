@@ -37,11 +37,11 @@ class SportDeliveryTests(unittest.TestCase):
             self.assertNotIn("%",payload["embeds"][0]["description"])
     def test_pagination_keeps_every_game(self):
         data=report()
-        data["competitions"][1]=comp("nhl",[game(i) for i in range(200,260)])
+        data["competitions"][1]=comp("nhl",[game(i) for i in range(200,340)])
         pageset=pages(data,"hockey")
         self.assertGreater(len(pageset),1)
         descriptions="\n".join(p["embeds"][0]["description"] for p in pageset)
-        for i in range(200,260):
+        for i in range(200,340):
             self.assertIn("Away"+str(i)+" @ Home"+str(i),descriptions)
     def test_reject_unverified(self):
         data=report()
