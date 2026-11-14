@@ -14,6 +14,8 @@ from parity_discord import github,discord_send,BOT
 from parity_model_handoff_consumer import stamp
 
 BLUE=0x3498db
+VERY_HIGH_PROBABILITY=0.70
+VERY_HIGH_CATEGORY="⭐ 🟨 **VERY HIGH MODEL PROBABILITY · 70%+** · descriptive only, not validated reliability"
 PREFIX="statrally-evenodd-research-picks-v1:"
 MAX_DESC=3300
 SPORTS={"soccer":"⚽ SOCCER","hockey":"🏒 NHL"}
@@ -64,9 +66,16 @@ def cards(projection,sport,*,now=None):
            ""]
     for row,kickoff,p in selections:
         side=row["prediction"]
+        starred=p>=VERY_HIGH_PROBABILITY
+        marker="⭐ " if starred else ""
+        estimate=f"{p:.1%}"
+        if not starred and estimate=="70.0%":
+            estimate="<70%"
         lines.extend([f"**{row['away']} @ {row['home']}** · <t:{int(kickoff.timestamp())}:t>",
-                      f"**{side}**  ·  Model estimate {p:.1%}",
-                      ""])
+                      f"{marker}**{side}**  ·  Model estimate {estimate}"])
+        if starred:
+            lines.append(VERY_HIGH_CATEGORY)
+        lines.append("")
     batches=[]
     part=[]
     for line in lines:
