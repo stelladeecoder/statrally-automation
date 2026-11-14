@@ -1,0 +1,46 @@
+name: Replace Nov 14 NHL watchlist odds with clean schedule
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/replace_nhl_watchlist_today.py"
+      - "tests/test_replace_nhl_watchlist_today.py"
+      - "tests/tests_fixture_nhl.py"
+      - ".github/workflows/nhl-watchlist-clean-repost.yml"
+  pull_request:
+    paths:
+      - "src/replace_nhl_watchlist_today.py"
+      - "tests/test_replace_nhl_watchlist_today.py"
+      - "tests/tests_fixture_nhl.py"
+      - ".github/workflows/nhl-watchlist-clean-repost.yml"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-nhl-watchlist-replace-2026-11-14
+  cancel-in-progress: false
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test replacement and watchlist-only display
+        env:
+          PYTHONPATH: src:tests
+        run: |
+          python -m unittest discover -s tests -p test_replace_nhl_watchlist_today.py -v
+          python -m unittest discover -s tests -p test_parity_sport_delivery.py -v
+      - name: Post clean NHL watchlist and remove old probability post
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
+        run: python src/replace_nhl_watchlist_today.py
