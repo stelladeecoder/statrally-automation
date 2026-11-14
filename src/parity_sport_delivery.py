@@ -136,10 +136,12 @@ def send_sport(report,sport,repo,webhook,*,call=github,sender=discord_send):
     return {"sport":sport,"status":"confirmed","delivered":len(receipts),"pages":len(payloads)}
 
 def destinations(environment):
-    """NHL must use an explicitly different Discord webhook from soccer."""
+    """NHL research belongs only in #nhl-watchlist, not picks or results."""
     soccer=(environment.get("STATRALLY_PARITY_SOCCER_WEBHOOK")
             or environment.get("STATRALLY_PARITY_DISCORD_WEBHOOK",""))
-    hockey=environment.get("STATRALLY_PARITY_HOCKEY_WEBHOOK","")
+    # Explicitly route the research slate to the owner's existing #nhl-watchlist.
+    # Legacy generic hockey webhook must not silently override the channel.
+    hockey=environment.get("STATRALLY_NHL_WATCHLIST_WEBHOOK","")
     # Do not fall back to the shared channel for hockey.
     if soccer and hockey and soccer.strip()==hockey.strip():
         raise ValueError("Soccer and NHL webhooks cannot be identical")
