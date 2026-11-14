@@ -30,6 +30,11 @@ class SportDeliveryTests(unittest.TestCase):
             self.assertIn("Away"+str(i)+" @ Home"+str(i),text)
         self.assertNotIn("more nhl fixtures",text)
         self.assertEqual(hockey[0]["embeds"][0]["color"],BLUE)
+        self.assertIn("Watchlist",hockey[0]["embeds"][0]["title"])
+        for payload in soccer+hockey:
+            self.assertNotIn("EVEN 40.0%",payload["embeds"][0]["description"])
+            self.assertNotIn("ODD 60.0%",payload["embeds"][0]["description"])
+            self.assertNotIn("%",payload["embeds"][0]["description"])
     def test_pagination_keeps_every_game(self):
         data=report()
         data["competitions"][1]=comp("nhl",[game(i) for i in range(200,260)])
