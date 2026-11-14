@@ -70,8 +70,7 @@ def main():
                    str(run["id"]), f"https://github.com/{repo}/actions/runs/{run['id']}")
         return
     if event == "push":
-        print("Admin alert monitor deployed and webhook configured")
-        return
+        print("Checking for missed runs after monitor deployment")
     for workflow, (label, deadline) in WORKFLOWS.items():
         response = github("GET", repo, f"/actions/workflows/{workflow}/runs?branch=main&per_page=100")
         runs = [run for run in response["workflow_runs"]
