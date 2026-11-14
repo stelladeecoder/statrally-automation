@@ -21,7 +21,7 @@ concurrency:
 jobs:
   rescue:
     # Do not generate a redundant dispatch for every healthy scheduler completion.
-    if: ${{ vars.STATRALLY_SCHEDULER_PAUSED != 'true' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure') }}
+    if: false # Do not restart retired BTTS scheduler
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
