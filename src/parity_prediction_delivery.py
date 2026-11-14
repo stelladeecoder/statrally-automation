@@ -157,6 +157,7 @@ def main():
     for sport,hook in routes.items():
         if hook and hook in forbidden:
             raise ValueError("Picks webhook cannot be a watchlist destination")
+    blockers=[]
     for sport in SPORTS:
         if not args.send:
             print("EVENODD_PICKS_PREVIEW="+json.dumps({"sport":sport,
@@ -165,8 +166,10 @@ def main():
         result=publish_one(report,sport,os.environ["GITHUB_REPOSITORY"],routes[sport])
         print("EVENODD_PICKS_DELIVERY="+json.dumps(result,sort_keys=True))
         if result["status"]=="dedicated_webhook_missing":
-            # An explicit missing channel is a deployment blocker, not a
-            # successful delivery claim.
-            raise ValueError("Dedicated "+sport+" picks webhook not configured")
+            blockers.append(sport)
+    if blockers:
+        # Do not suppress a sport with a correctly configured picks channel
+        # just because the other sport is awaiting a separate webhook.
+        raise ValueError("Dedicated Even/Odd picks webhooks not configured: "+",".join(blockers))
 if __name__=="__main__":
     main()
