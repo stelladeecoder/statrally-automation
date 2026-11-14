@@ -39,8 +39,11 @@ def fetch_scoreboard(key,start,end):
         raise ValueError("Invalid scoreboard date range")
     date_arg=f"{start:%Y%m%d}-{end:%Y%m%d}"
     url=f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{code}/scoreboard?dates={date_arg}&limit=500"
-    with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"StatRallyParityResearch/0.1"}),timeout=25) as response:
-        payload=json.load(response)
+    try:
+        with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"StatRallyParityResearch/0.1"}),timeout=25) as response:
+            payload=json.load(response)
+    except Exception as exc:
+        raise RuntimeError(f"Scoreboard failed {key} {date_arg}: {type(exc).__name__} {getattr(exc,'code','')}") from exc
     return parse_scoreboard(key,payload,url)
 
 def parse_scoreboard(key,payload,source_url):
@@ -168,7 +171,14 @@ def build_report(*,now=None,history_days=35,fetch=fetch_scoreboard,keys=None):
     snapshots=[]
     all_ids=set()
     for key in keys:
-        historical=fetch(key,start,end)
+        historical=[]
+        cursor=start
+        while cursor<=end:
+            chunk_end=min(cursor+timedelta(days=6),end)
+            historical.extend(fetch(key,cursor,chunk_end))
+            cursor=chunk_end+timedelta(days=1)
+        if len({r["id"] for r in historical})!=len(historical):
+            raise ValueError("Overlapping ESPN historical event identities")
         # Same date in timezone may have been in progress at snapshot time;
         # exact recorded kickoff < today's cutoff still enforced by model.
         verified=[x for x in historical if x["status"]=="graded"
