@@ -79,7 +79,11 @@ def cards(projection,sport,*,now=None):
             competition=COMPETITIONS.get(league.removeprefix("soccer_"))
             if competition is None:
                 competition=LEAGUES.get(league,("","","Soccer"))[2]
-            flag=WATCHLIST_FLAGS.get(competition, {"NWSL":"🇺🇸", "Women's Champions League":"🏆"}.get(competition,"⚽"))
+            flag=WATCHLIST_FLAGS.get(competition.removeprefix("UEFA "), "⚽")
+            if league=="soccer_nwsl":
+                flag="🇺🇸"
+            if league=="soccer_uwcl":
+                flag="🏆"
             fixture=f"{flag} {fixture} · {competition}"
         lines.extend([fixture,
                       f"{marker}**{side}**  ·  Model estimate {estimate}"])
