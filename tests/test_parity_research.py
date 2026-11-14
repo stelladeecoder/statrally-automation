@@ -52,7 +52,7 @@ class ParityTests(unittest.TestCase):
     def test_report_covers_men_women_and_nhl(self):
         keys=("soccer_epl","soccer_nwsl","nhl")
         def fetch(key,start,end):
-            if (end-start).days<10:
+            if end>=NOW.date():
                 return parse_scoreboard(key,{"events":[event(777)]},"https://source.test")
             final_status="STATUS_FINAL" if key=="nhl" else "STATUS_FULL_TIME"
             return parse_scoreboard(key,{"events":[event(int(start.strftime("%m%d")), date="2026-11-03T10:00:00Z",
