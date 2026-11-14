@@ -5,7 +5,7 @@ and **#nhl-results**. Do not create a fourth hockey channel.
 
 | Channel | Intended content | Current live state |
 | --- | --- | --- |
-| `#nhl-watchlist` | Every verified upcoming NHL fixture and research-only EVEN/ODD probabilities, including insufficient-history notices | Implemented; requires owner-supplied webhook |
+| `#nhl-watchlist` | Every verified upcoming NHL fixture and start time, with no EVEN/ODD probabilities or betting prices | Implemented; requires owner-supplied webhook |
 | `#nhl-picks` | Selected EVEN/ODD predictions only after an independently validated, calibrated sport-specific model and verified exact sportsbook market/odds | **Disabled**; do not post baseline probabilities as approved picks |
 | `#nhl-results` | Grades for previously recorded NHL forecasts, posted only after verified final scores and separated from sportsbook settlement | Forward results stored and graded in GitHub; **Discord channel posting not yet implemented** |
 
@@ -37,3 +37,7 @@ picks publishing policy.
 The next verified scheduled run must confirm the intended Discord
 channel. Existing same-day posts are reserved and not blindly
 resent to prevent duplicates.
+
+## Watchlist presentation policy (November 14, 2026)
+
+Both soccer and NHL watchlists show **matchups and scheduled kickoff/puck-drop times only**. The model may retain pregame probabilities privately for forward testing, but percentages and betting odds are not displayed in watchlist Discord messages. `#nhl-picks` remains disabled until model-validation, matching and price checks pass. On November 14 a one-time migration replaces the original NHL watchlist message and deletes the original after a confirmed replacement.
