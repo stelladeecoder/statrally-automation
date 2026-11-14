@@ -76,13 +76,13 @@ def deliver(payloads,repo,token,webhook,*,now=None):
                         urlencode(params+[("wait","true")]),""))
     # Validate every message before creating a GitHub reservation or making any network request.
     for payload in payloads:
-            if (not isinstance(payload,dict) or
-                set(payload)!={"content","allowed_mentions"} or
-                payload.get("allowed_mentions")!={"parse":[]} or
-                not isinstance(payload.get("content"),str) or
-                not 1<=len(payload["content"])<=1900 or
-                "Experimental, uncalibrated probabilities" not in payload["content"]):
-                raise ValueError("Unsafe research-only Discord payload")
+        if (not isinstance(payload,dict) or
+            set(payload)!={"content","allowed_mentions"} or
+            payload.get("allowed_mentions")!={"parse":[]} or
+            not isinstance(payload.get("content"),str) or
+            not 1<=len(payload["content"])<=1900 or
+            "Experimental, uncalibrated probabilities" not in payload["content"]):
+            raise ValueError("Unsafe research-only Discord payload")
     number=ledger(repo,token,now.astimezone(CENTRAL).date().isoformat())
     seen=[r.get("body","") for r in comments(repo,token,number)
           if r.get("user",{}).get("login")==BOT]
