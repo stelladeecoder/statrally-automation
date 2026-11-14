@@ -1,17 +1,18 @@
 import unittest
 from datetime import datetime,timezone
 from parity_scheduler_watchdog import inspect,START
-from parity_discord import RESERVATION
+from parity_sport_delivery import PREFIX
 
 RUN={"event":"schedule","head_branch":"main",
      "created_at":"2026-11-15T09:16:00Z",
      "conclusion":"success","status":"completed"}
 NOW=datetime(2026,11,15,18,0,tzinfo=timezone.utc)
-def receipt():
+def receipt(sport="soccer"):
     import json
-    return {"title":"StatRally parity research | 2026-11-15",
+    return {"title":"StatRally parity "+sport+" | 2026-11-15",
             "user":{"login":"github-actions[bot]"},
-            "body":RESERVATION+json.dumps({"status":"confirmed","message_id":"12345678"})}
+            "body":PREFIX+json.dumps({"status":"confirmed","pages":1,
+                                     "message_ids":["12345678"]})}
 
 class WatchdogTests(unittest.TestCase):
     def test_predeployment_and_early_central_day(self):
@@ -27,6 +28,8 @@ class WatchdogTests(unittest.TestCase):
         self.assertEqual(inspect(NOW,[RUN],[])["status"],
                          "scheduled_scan_succeeded_discord_unverified")
         self.assertEqual(inspect(NOW,[RUN],[receipt()])["status"],
+                         "scheduled_scan_succeeded_discord_unverified")
+        self.assertEqual(inspect(NOW,[RUN],[receipt(),receipt("hockey")])["status"],
                          "scheduled_scan_and_discord_confirmed")
     def test_failure_and_in_progress(self):
         self.assertEqual(inspect(NOW,[dict(RUN,conclusion="failure")],[])["status"],
