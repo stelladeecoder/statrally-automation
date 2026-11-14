@@ -11,6 +11,7 @@ def source():
         "source_repository":PRIVATE,"source_commit":"a"*40,"source_run_id":1234,
         "input_repository":"stelladeecoder/statrally-automation",
         "input_day":"2026-11-14","input_issued_at":"2026-11-14T15:00:00+00:00",
+        "input_source":"espn_verified_13_league_upcoming_v1","input_fixture_count":1,
         "exported_at":"2026-11-14T16:30:00+00:00",
         "model":"team_poisson_parity_candidate_v1",
         "status":"research_only_not_promoted","validated_for_production":False,
@@ -53,6 +54,15 @@ class HandoffConsumerTests(unittest.TestCase):
         bad=source()
         bad["forecasts"][0]["status"]="team_identity_unconfirmed"
         with self.assertRaisesRegex(ValueError,"Unverified"):
+            validate(bad,run(),now=NOW)
+    def test_reject_old_frozen_fixture_archive_and_missing_slate_matches(self):
+        bad=source()
+        bad["input_source"]="legacy_frozen_archive_v1"
+        with self.assertRaisesRegex(ValueError,"fresh verified"):
+            validate(bad,run(),now=NOW)
+        bad=source()
+        bad["input_fixture_count"]=2
+        with self.assertRaisesRegex(ValueError,"Incomplete candidate"):
             validate(bad,run(),now=NOW)
     def test_reject_missing_league_evidence(self):
         bad=source()

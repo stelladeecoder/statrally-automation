@@ -63,6 +63,11 @@ def validate(data,run,*,now=None):
         or type(data.get("source_run_id")) is not int
         or data["source_run_id"]!=run.get("id")):
         raise ValueError("GitHub workflow provenance mismatch")
+    # Reject fallbacks to the historical, pre-expansion daily archive.
+    if (data.get("input_source")!="espn_verified_13_league_upcoming_v1"
+        or type(data.get("input_fixture_count")) is not int
+        or not 0<=data["input_fixture_count"]<=300):
+        raise ValueError("Expected fresh verified 13-league fixture source")
     exported=stamp(data.get("exported_at"))
     created=stamp(run.get("created_at"))
     issued=stamp(data.get("input_issued_at"))
@@ -84,8 +89,9 @@ def validate(data,run,*,now=None):
             if type(b) not in (int,float) or not math.isfinite(b) or not 0<=b<=1:
                 raise ValueError("Invalid Brier evidence")
     forecasts=data.get("forecasts")
-    if not isinstance(forecasts,list) or len(forecasts)>300:
-        raise ValueError("Invalid candidate fixture list")
+    if (not isinstance(forecasts,list) or len(forecasts)>300
+        or len(forecasts)!=data["input_fixture_count"]):
+        raise ValueError("Incomplete candidate fixture list or unmatched source count")
     seen=set()
     safe=[]
     for candidate in forecasts:
@@ -123,6 +129,8 @@ def validate(data,run,*,now=None):
     return {"schema_version":1,"source_run_id":run["id"],
         "source_commit":run["head_sha"],"source_repository":PRIVATE,
         "model":data["model"],"input_day":data["input_day"],
+        "input_source":data["input_source"],
+        "input_fixture_count":data["input_fixture_count"],
         "exported_at":exported.isoformat(),
         "status":"research_only_not_promoted",
         "calibrated":False,"markets_verified":False,"qualified_bets":0,
