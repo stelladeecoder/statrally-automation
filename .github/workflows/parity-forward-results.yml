@@ -1,6 +1,12 @@
 name: StatRally Even Odd verified forward results
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/parity-forward-results.yml"
+      - "src/parity_forward_ledger.py"
+      - "src/parity_public_snapshot.py"
   workflow_run:
     workflows:
       - "StatRally soccer + NHL Even Odd research beta"
