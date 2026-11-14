@@ -27,7 +27,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   daily:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_run' || inputs.publish_discord }}
+    if: false # Retired BTTS daily results; Even/Odd grading is separate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
