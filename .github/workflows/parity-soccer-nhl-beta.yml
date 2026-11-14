@@ -9,8 +9,6 @@ on:
       - "tests/test_parity_research.py"
       - "src/parity_forward_ledger.py"
       - "tests/test_parity_forward_ledger.py"
-      - "src/parity_forward_ledger.py"
-      - "tests/test_parity_forward_ledger.py"
       - ".github/workflows/parity-soccer-nhl-beta.yml"
   schedule:
     - cron: "15 9 * * *"
@@ -18,7 +16,9 @@ on:
     paths:
       - "src/parity_research.py"
       - "src/parity_discord.py"
+      - "src/parity_forward_ledger.py"
       - "tests/test_parity_research.py"
+      - "tests/test_parity_forward_ledger.py"
       - ".github/workflows/parity-soccer-nhl-beta.yml"
 permissions:
   contents: read
