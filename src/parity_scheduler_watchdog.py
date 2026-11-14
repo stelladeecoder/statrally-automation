@@ -8,6 +8,7 @@ import os
 from datetime import datetime,date,time,timezone
 from zoneinfo import ZoneInfo
 from parity_discord import github,discord_send,reservation,BOT,RESERVATION
+from parity_sport_delivery import PREFIX as SPORT_PREFIX
 
 CENTRAL=ZoneInfo("America/Chicago")
 WORKFLOW="parity-soccer-nhl-beta.yml"
@@ -32,18 +33,25 @@ def inspect(now,runs,issues):
         if created==day:todays.append(run)
     if not todays:return {"status":"missed_scheduled_run","day":str(day)}
     if any(x.get("conclusion")=="success" for x in todays):
-        title="StatRally parity research | "+str(day)
-        receipts=[x for x in issues if x.get("title")==title and "pull_request" not in x]
-        if len(receipts)>1:raise ValueError("Duplicate daily parity delivery receipts")
-        if not receipts:
-            return {"status":"scheduled_scan_succeeded_discord_unverified","day":str(day)}
-        receipt=receipts[0]
-        if receipt.get("user",{}).get("login")!=BOT or not (receipt.get("body") or "").startswith(RESERVATION):
-            raise ValueError("Untrusted Discord receipt")
-        value=json.loads(receipt["body"][len(RESERVATION):])
-        if value.get("status")=="confirmed" and str(value.get("message_id","")).isdigit():
-            return {"status":"scheduled_scan_and_discord_confirmed","day":str(day)}
-        return {"status":"scheduled_scan_succeeded_discord_unverified","day":str(day)}
+        # Every sport must have a separately confirmed research delivery receipt.
+        for sport in ("soccer","hockey"):
+            title=f"StatRally parity {sport} | {day}"
+            receipts=[x for x in issues if x.get("title")==title and "pull_request" not in x]
+            if len(receipts)>1:raise ValueError("Duplicate sport-specific delivery receipts")
+            if not receipts:
+                return {"status":"scheduled_scan_succeeded_discord_unverified",
+                        "day":str(day),"sport":sport}
+            receipt=receipts[0]
+            if receipt.get("user",{}).get("login")!=BOT or not (receipt.get("body") or "").startswith(SPORT_PREFIX):
+                raise ValueError("Untrusted sport-specific Discord receipt")
+            value=json.loads(receipt["body"][len(SPORT_PREFIX):])
+            if (value.get("status")!="confirmed" or type(value.get("pages")) is not int
+                    or value["pages"]<1 or not isinstance(value.get("message_ids"),list)
+                    or len(value["message_ids"])!=value["pages"] or
+                    any(not str(x).isdigit() for x in value["message_ids"])):
+                return {"status":"scheduled_scan_succeeded_discord_unverified",
+                        "day":str(day),"sport":sport}
+        return {"status":"scheduled_scan_and_discord_confirmed","day":str(day)}
     if any(x.get("status") in ("queued","waiting","pending","in_progress") for x in todays):
         return {"status":"scheduled_scan_in_progress","day":str(day)}
     return {"status":"scheduled_scan_failed","day":str(day)}
