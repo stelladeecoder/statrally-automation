@@ -38,13 +38,12 @@ Configured competition coverage does **not** guarantee a game on every date or a
 
 ## The StatRally experience
 
-- **Match watchlists:** Upcoming games and start times, organized by sport.
-- **Even/Odd predictions:** Experimental pregame classifications of the total as EVEN or ODD; no market-price or EV filter.
-- **Results:** Independently checked final-score outcomes where available.
-- **Performance tracking:** Transparent evaluation of original, timestamped research forecasts.
-- **Free access:** Community and web experiences are intended to be free.
+- **Watchlists** show upcoming soccer and NHL matchups and start times.
+- **Pregame picks** classify the combined score as **EVEN** or **ODD** for eligible games. Each pick shows the model’s estimated probability and is generated independently of sportsbook odds.
+- **Game results** show the original pick, the verified final score, and whether the prediction was correct.
+- **Daily, weekly, and monthly recaps** show combined accuracy alongside separate soccer and NHL records. The monthly recap includes a calendar of daily results.
 
-Watchlists contain **matchups and scheduled times only**. The independent model generates **experimental EVEN/ODD classifications** for eligible pregame soccer and NHL fixtures. A classification chooses the more likely parity side based on its fitted research probability; it **does not require betting odds, sportsbook prices, or EV calculations**. Forecast confidence and historical calibration limitations are displayed separately from watchlists. Dedicated Discord picks posting requires the sport-specific picks-channel webhook to be configured; the predictions are otherwise retained in timestamped GitHub evidence.
+⭐ **Picks at 70% or higher** count toward overall accuracy and have their own recap breakdown. The star reflects the model’s estimate. Reliability at this threshold is still unvalidated.
 
 ## 📱 Mobile experience coming soon
 
