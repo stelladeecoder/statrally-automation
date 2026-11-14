@@ -1,0 +1,35 @@
+name: StatRally parity scheduled delivery watchdog
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 16,22 * * *"
+permissions:
+  contents: read
+  actions: read
+  issues: write
+concurrency:
+  group: statrally-parity-watchdog
+  cancel-in-progress: false
+jobs:
+  monitor:
+    if: vars.STATRALLY_PARITY_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test timezone, run-history and Discord-receipt checks
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p test_parity_scheduler_watchdog.py -v
+      - name: Verify today's independent scheduled scan and delivery
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STATRALLY_ADMIN_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_ADMIN_DISCORD_WEBHOOK }}
+        run: python src/parity_scheduler_watchdog.py
