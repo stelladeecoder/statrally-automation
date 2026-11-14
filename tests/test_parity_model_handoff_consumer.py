@@ -12,6 +12,8 @@ def source():
         "input_repository":"stelladeecoder/statrally-automation",
         "input_day":"2026-11-14","input_issued_at":"2026-11-14T15:00:00+00:00",
         "input_source":"espn_verified_13_league_upcoming_v1","input_fixture_count":1,
+        "input_sport_counts":{"soccer":1,"hockey":0},
+        "nhl_evaluation":{"status":"not_supplied","n_test":0},
         "exported_at":"2026-11-14T16:30:00+00:00",
         "model":"team_poisson_parity_candidate_v1",
         "status":"research_only_not_promoted","validated_for_production":False,
@@ -19,10 +21,13 @@ def source():
         "forecasts":[{"id":"espn:soccer:eng.1:123","league":"soccer_epl",
           "status":"research_forecast_not_promoted","model":"team_poisson_parity_candidate_v1",
           "calibrated":False,"market_verified":False,"qualified_bet":False,
+          "home":"Arsenal","away":"Chelsea","prediction":"EVEN",
+          "calibration_evaluated":True,
           "p_even":.5012,"p_odd":.4988,"issued_at":"2026-11-14T16:30:00+00:00",
           "kickoff_utc":"2026-11-14T19:00:00+00:00"}],
         "holdout_by_league":{k:{"status":"research_only_not_promoted",
-          "evaluated":20,"candidate_brier":.25,"calibrated":False,"promoted":False}
+          "evaluated":20,"candidate_brier":.25,"calibrated":False,"promoted":False,
+          "calibration_status":"evaluated_not_promoted","calibration_n_test":50}
           for k in LEAGUES}}
 def run():
     return {"id":1234,"head_sha":"a"*40,"head_branch":"main","status":"completed",
@@ -62,8 +67,25 @@ class HandoffConsumerTests(unittest.TestCase):
             validate(bad,run(),now=NOW)
         bad=source()
         bad["input_fixture_count"]=2
-        with self.assertRaisesRegex(ValueError,"Incomplete candidate"):
+        with self.assertRaisesRegex(ValueError,"fixture counts"):
             validate(bad,run(),now=NOW)
+    def test_nhl_calibrated_research_prediction_without_market_prices(self):
+        d=source()
+        d["input_fixture_count"]=2
+        d["input_sport_counts"]["hockey"]=1
+        d["nhl_evaluation"]={"status":"evaluated_not_promoted","n_test":55}
+        d["forecasts"].append({"id":"espn:hockey:nhl:777","league":"nhl",
+          "home":"Wild","away":"Blues",
+          "status":"research_forecast_not_promoted",
+          "model":"nhl_team_parity_regularized_platt_v1",
+          "calibrated":False,"market_verified":False,"qualified_bet":False,
+          "prediction":"ODD","p_even":.41,"p_odd":.59,
+          "issued_at":"2026-11-14T16:30:00+00:00",
+          "kickoff_utc":"2026-11-14T22:00:00+00:00"})
+        projected=validate(d,run(),now=NOW)
+        self.assertEqual(len(projected["forecasts"]),2)
+        self.assertEqual(projected["forecasts"][1]["prediction"],"ODD")
+        self.assertNotIn("market_odds_decimal",projected["forecasts"][1])
     def test_reject_missing_league_evidence(self):
         bad=source()
         bad["holdout_by_league"].pop("soccer_mls")
