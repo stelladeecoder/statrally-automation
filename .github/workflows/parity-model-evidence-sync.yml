@@ -1,0 +1,53 @@
+name: Read private Even Odd model handoff into research ledger
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 11 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "src/parity_model_handoff_consumer.py"
+      - "tests/test_parity_model_handoff_consumer.py"
+      - ".github/workflows/parity-model-evidence-sync.yml"
+  pull_request:
+    paths:
+      - "src/parity_model_handoff_consumer.py"
+      - "tests/test_parity_model_handoff_consumer.py"
+      - ".github/workflows/parity-model-evidence-sync.yml"
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-parity-private-model-sync
+  cancel-in-progress: false
+jobs:
+  research-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify immutable artifact provenance and fail-closed research gates
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p test_parity_model_handoff_consumer.py -v
+      - name: Read private research export; archive safe projection without publishing picks
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STATRALLY_MODELS_READ_TOKEN: ${{ secrets.STATRALLY_MODELS_READ_TOKEN }}
+        run: python src/parity_model_handoff_consumer.py
+      - name: Save verified model handoff audit
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: statrally-parity-model-evidence-${{ github.run_id }}
+          path: out/model-handoff-evidence.json
+          retention-days: 30
+          if-no-files-found: error
