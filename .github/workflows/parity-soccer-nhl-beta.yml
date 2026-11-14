@@ -8,6 +8,8 @@ on:
       - "src/parity_discord.py"
       - "src/parity_sport_delivery.py"
       - "tests/test_parity_sport_delivery.py"
+      - "src/parity_discord_cards.py"
+      - "tests/test_parity_discord_cards.py"
       - "tests/test_parity_research.py"
       - "src/parity_forward_ledger.py"
       - "tests/test_parity_forward_ledger.py"
@@ -23,6 +25,8 @@ on:
       - "src/parity_discord.py"
       - "src/parity_sport_delivery.py"
       - "tests/test_parity_sport_delivery.py"
+      - "src/parity_discord_cards.py"
+      - "tests/test_parity_discord_cards.py"
       - "src/parity_forward_ledger.py"
       - "tests/test_parity_research.py"
       - "tests/test_parity_forward_ledger.py"
@@ -54,6 +58,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_parity_public_snapshot.py' -v
           python -m unittest discover -s tests -p 'test_parity_page.py' -v
           python -m unittest discover -s tests -p 'test_parity_sport_delivery.py' -v
+          python -m unittest discover -s tests -p 'test_parity_discord_cards.py' -v
           python -m unittest discover -s tests -p 'test_parity_scheduler_watchdog.py' -v
       - name: Read live ESPN final scores and upcoming fixtures
         env:
