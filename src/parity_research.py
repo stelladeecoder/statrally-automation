@@ -37,7 +37,9 @@ def fetch_scoreboard(key,start,end):
     sport,code,*_=LEAGUES[key]
     if end<start:
         raise ValueError("Invalid scoreboard date range")
-    date_arg=f"{start:%Y%m%d}-{end:%Y%m%d}"
+    if start!=end:
+        raise ValueError("ESPN requires an individually requested scoreboard date")
+    date_arg=f"{start:%Y%m%d}"
     url=f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{code}/scoreboard?dates={date_arg}&limit=500"
     try:
         with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"StatRallyParityResearch/0.1"}),timeout=25) as response:
@@ -174,25 +176,29 @@ def build_report(*,now=None,history_days=35,fetch=fetch_scoreboard,keys=None):
         historical=[]
         cursor=start
         while cursor<=end:
-            chunk_end=min(cursor+timedelta(days=6),end)
-            historical.extend(fetch(key,cursor,chunk_end))
-            cursor=chunk_end+timedelta(days=1)
+            historical.extend(fetch(key,cursor,cursor))
+            cursor+=timedelta(days=1)
         if len({r["id"] for r in historical})!=len(historical):
             raise ValueError("Overlapping ESPN historical event identities")
-        # Same date in timezone may have been in progress at snapshot time;
-        # exact recorded kickoff < today's cutoff still enforced by model.
+        # Only verified historical finals before the UTC day are eligible.
         verified=[x for x in historical if x["status"]=="graded"
                   and parse_time(x["kickoff_utc"]).date()<now.date()]
         if any(x["id"] in all_ids for x in verified):
             raise ValueError("Duplicate multi-competition ID")
         all_ids.update(x["id"] for x in verified)
         # Schedule uses calendar days surrounding Central today, not UTC-only today.
-        today_rows=fetch(key,today-timedelta(days=1),today+timedelta(days=1))
+        today_rows=[]
+        for day in (today-timedelta(days=1),today,today+timedelta(days=1)):
+            today_rows.extend(fetch(key,day,day))
         fixtures=[]
+        seen_fixtures=set()
         for item in today_rows:
             kickoff=parse_time(item["kickoff_utc"])
             if kickoff.astimezone(CENTRAL).date()!=today or item["status"]!="pregame" or kickoff<=now:
                 continue
+            if item["id"] in seen_fixtures:
+                continue
+            seen_fixtures.add(item["id"])
             fixtures.append({"id":item["id"],"home":item["home"],"away":item["away"],
                 "kickoff_utc":item["kickoff_utc"],
                 "forecast":probability(item,verified,now.isoformat())})
