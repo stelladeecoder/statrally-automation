@@ -74,19 +74,21 @@ def deliver(payloads,repo,token,webhook,*,now=None):
     params=[(k,v) for k,v in parse_qsl(parts.query) if k!="wait"]
     endpoint=urlunsplit((parts.scheme,parts.netloc,parts.path,
                         urlencode(params+[("wait","true")]),""))
+    # Validate every message before creating a GitHub reservation or making any network request.
+    for payload in payloads:
+            if (not isinstance(payload,dict) or
+                set(payload)!={"content","allowed_mentions"} or
+                payload.get("allowed_mentions")!={"parse":[]} or
+                not isinstance(payload.get("content"),str) or
+                not 1<=len(payload["content"])<=1900 or
+                "Experimental, uncalibrated probabilities" not in payload["content"]):
+                raise ValueError("Unsafe research-only Discord payload")
     number=ledger(repo,token,now.astimezone(CENTRAL).date().isoformat())
     seen=[r.get("body","") for r in comments(repo,token,number)
           if r.get("user",{}).get("login")==BOT]
     confirmed=0
     reserved=0
     for index,payload in enumerate(payloads,1):
-        if (not isinstance(payload,dict) or
-            set(payload)!={"content","allowed_mentions"} or
-            payload.get("allowed_mentions")!={"parse":[]} or
-            not isinstance(payload.get("content"),str) or
-            not 1<=len(payload["content"])<=1900 or
-            "Experimental, uncalibrated probabilities" not in payload["content"]):
-            raise ValueError("Unsafe research-only Discord payload")
         # A posting slot is immutable across model reruns on this local day.
         slot=f"{PREFIX}page:{index}"
         if any(v.startswith(slot+":reserved") or v.startswith(slot+":confirmed") for v in seen):
