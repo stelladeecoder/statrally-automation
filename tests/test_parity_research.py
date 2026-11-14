@@ -55,7 +55,7 @@ class ParityTests(unittest.TestCase):
             if (end-start).days<10:
                 return parse_scoreboard(key,{"events":[event(777)]},"https://source.test")
             final_status="STATUS_FINAL" if key=="nhl" else "STATUS_FULL_TIME"
-            return parse_scoreboard(key,{"events":[event(100, date="2026-11-03T10:00:00Z",
+            return parse_scoreboard(key,{"events":[event(int(start.strftime("%m%d")), date="2026-11-03T10:00:00Z",
                     completed=True,status=final_status,home_score=0,away_score=0)]},"https://source.test")
         report=build_report(now=NOW,history_days=14,keys=keys,fetch=fetch)
         self.assertEqual(report["qualified_bets"],0)
