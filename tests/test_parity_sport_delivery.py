@@ -50,15 +50,24 @@ class SportDeliveryTests(unittest.TestCase):
         soccer="https://discord.com/api/webhooks/soccer"
         hockey="https://discord.com/api/webhooks/hockey"
         config={"STATRALLY_PARITY_DISCORD_WEBHOOK":soccer,
-                "STATRALLY_PARITY_HOCKEY_WEBHOOK":hockey}
+                "STATRALLY_NHL_WATCHLIST_WEBHOOK":hockey}
         self.assertEqual(destinations(config),{"soccer":soccer,"hockey":hockey})
-        config["STATRALLY_PARITY_HOCKEY_WEBHOOK"]=soccer
+        config["STATRALLY_NHL_WATCHLIST_WEBHOOK"]=soccer
         with self.assertRaisesRegex(ValueError,"cannot be identical"):
             destinations(config)
+    def test_legacy_hockey_webhook_cannot_route_to_wrong_channel(self):
+        old={"STATRALLY_PARITY_HOCKEY_WEBHOOK":"https://discord.com/api/webhooks/old-hockey"}
+        self.assertEqual(destinations(old)["hockey"],"")
+    def test_nhl_picks_results_secrets_do_not_contaminate_watchlist(self):
+        routes=destinations({
+            "STATRALLY_NHL_PICKS_WEBHOOK":"https://discord.com/api/webhooks/nhl-picks",
+            "STATRALLY_NHL_RESULTS_WEBHOOK":"https://discord.com/api/webhooks/nhl-results",
+        })
+        self.assertEqual(routes["hockey"],"")
     def test_explicit_soccer_channel_takes_precedence(self):
         config={"STATRALLY_PARITY_SOCCER_WEBHOOK":"soccer-channel",
                 "STATRALLY_PARITY_DISCORD_WEBHOOK":"old-channel",
-                "STATRALLY_PARITY_HOCKEY_WEBHOOK":"hockey-channel"}
+                "STATRALLY_NHL_WATCHLIST_WEBHOOK":"hockey-channel"}
         self.assertEqual(destinations(config)["soccer"],"soccer-channel")
     def test_independent_delivery_and_duplicate_gate(self):
         data=report()
