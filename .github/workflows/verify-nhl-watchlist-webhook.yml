@@ -1,0 +1,39 @@
+name: Verify NHL watchlist webhook destination
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/verify_nhl_watchlist_webhook.py"
+      - "tests/test_verify_nhl_watchlist_webhook.py"
+      - ".github/workflows/verify-nhl-watchlist-webhook.yml"
+  pull_request:
+    paths:
+      - "src/verify_nhl_watchlist_webhook.py"
+      - "tests/test_verify_nhl_watchlist_webhook.py"
+      - ".github/workflows/verify-nhl-watchlist-webhook.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test NHL webhook validation offline
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p test_verify_nhl_watchlist_webhook.py -v
+      - name: Verify configured NHL destination metadata without sending a message
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          PYTHONPATH: src
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
+          STATRALLY_PARITY_SOCCER_WEBHOOK: ${{ secrets.STATRALLY_PARITY_SOCCER_WEBHOOK }}
+          STATRALLY_PARITY_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_PARITY_DISCORD_WEBHOOK || secrets.STATRALLY_DISCORD_WEBHOOK }}
+        run: python src/verify_nhl_watchlist_webhook.py
