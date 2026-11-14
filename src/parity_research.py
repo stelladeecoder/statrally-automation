@@ -208,6 +208,7 @@ def build_report(*,now=None,history_days=35,fetch=fetch_scoreboard,keys=None):
                 continue
             seen_fixtures.add(item["id"])
             fixtures.append({"id":item["id"],"home":item["home"],"away":item["away"],
+                "home_team_id":item["home_team_id"],"away_team_id":item["away_team_id"],
                 "kickoff_utc":item["kickoff_utc"],
                 "forecast":probability(item,verified,now.isoformat())})
         fixtures.sort(key=lambda r:(r["kickoff_utc"],r["id"]))
