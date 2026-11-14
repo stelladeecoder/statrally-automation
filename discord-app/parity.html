@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StatRally · Even/Odd research</title><link rel="stylesheet" href="./platform.css">
+<script type="module" src="./parity-web.mjs"></script></head>
+<body>
+<header><a href="./" class="brand">StatRally</a><span>Soccer + NHL · Even/Odd research beta</span></header>
+<main>
+<h1>Total-score parity research</h1>
+<p class="muted">Experimental, uncalibrated EVEN/ODD probabilities for soccer and NHL. No verified market prices, approved betting picks or trading. Soccer: 90-minute scores. NHL: final-score totals, potentially including overtime and shootouts.</p>
+<p id="source" role="status">Loading forward-recorded parity forecasts…</p>
+<div class="controls">
+<label>Sport <select id="sport"><option value="">All sports</option><option value="soccer">Soccer</option><option value="hockey">NHL</option></select></label>
+<label>Competition <select id="league"><option value="">All competitions</option></select></label>
+<label>View <select id="state"><option value="">All issued forecasts</option><option value="pending">Pending outcomes</option><option value="graded">Verified results</option></select></label>
+</div>
+<div class="summary" id="summary"></div>
+<section id="content" aria-live="polite"></section>
+<footer><strong>Research only.</strong> Forecasts are saved before puck drop or kickoff. Pending or unconfirmed results do not count as losses. Odd/even sportsbook rules vary, especially for NHL overtime and shootouts. The separate legacy BTTS view remains available on the <a href="./">StatRally dashboard</a>.</footer>
+</main></body></html>

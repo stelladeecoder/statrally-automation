@@ -37,7 +37,9 @@ The mobile experience is **not yet publicly available**. There is no registratio
 
 On November 14, 2026, the multi-sport research pipeline completed a successful production scan with **358 historical final-score records, 15 upcoming fixtures and 15 experimental parity forecasts** across eight configured competitions. Discord acknowledged the research-status message. This is a **research beta**, not an odds-integrated, calibrated, or wager-qualified picks service.
 
-View [launch scope and verification limits](docs/parity_soccer_nhl_beta_launch.md). NHL full-game scoreboard parity and 60-minute regulation parity are different contracts; we do not assume sportsbook market equivalence.
+View [launch scope and verification limits](docs/parity_soccer_nhl_beta_launch.md) and [verified market-rule research](docs/parity_market_rules.md). NHL full-game scoreboard parity and 60-minute regulation parity are different contracts; we do not assume sportsbook market equivalence.
+
+**Forward performance milestone:** Each new research slate is archived before its Discord status post. A separate daily workflow checks original saved probabilities against independently verified game finals and records immutable EVEN/ODD outcomes, preserving missing or pending results. The optional read-only GitHub Pages build includes a separate mobile-friendly **Even/Odd dashboard**; public hosting and future scheduled delivery must be verified independently. No historical BTTS result is overwritten.
 
 Additional sports (NBA, WNBA, college men’s and women’s basketball, NFL, NCAA football and MLB) remain roadmap items, not live integrations.
 

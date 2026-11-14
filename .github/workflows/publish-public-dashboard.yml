@@ -1,6 +1,11 @@
 name: Publish read-only StatRally dashboard
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "StatRally soccer + NHL Even Odd research beta"
+      - "StatRally Even Odd verified forward results"
+    types: [completed]
   push:
     branches: [main]
     paths:
@@ -8,9 +13,12 @@ on:
       - "discord-app/prediction-quality.mjs"
       - "discord-app/platform*"
       - "scripts/build_public_dashboard.py"
+      - "src/parity_public_snapshot.py"
+      - "discord-app/parity*"
       - ".github/workflows/publish-public-dashboard.yml"
 permissions:
   contents: read
+  issues: read
   pages: write
   id-token: write
 concurrency:
@@ -18,7 +26,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || vars.STATRALLY_PUBLIC_DASHBOARD_ENABLED == 'true'
+    if: |
+      (github.event_name == 'workflow_dispatch' || vars.STATRALLY_PUBLIC_DASHBOARD_ENABLED == 'true') &&
+      (github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-latest
     timeout-minutes: 8
     environment:
@@ -35,6 +46,12 @@ jobs:
         run: node --test discord-app/tests/*.test.mjs
       - name: Build static public consumer of the sanitized export
         run: python3 scripts/build_public_dashboard.py --output "$RUNNER_TEMP/site"
+      - name: Build published parity snapshot from frozen prematch records
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python src/parity_public_snapshot.py --output "$RUNNER_TEMP/site/parity.json"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
