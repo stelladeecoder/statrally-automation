@@ -3,7 +3,8 @@ import json
 import unittest
 import zipfile
 from datetime import datetime,timedelta,timezone
-from parity_model_handoff_consumer import validate,retrieve,record,PRIVATE,LEAGUES,CONTRACT,PREFIX
+from parity_model_handoff_consumer import validate,retrieve,record,PRIVATE,LEAGUES,CONTRACT,PREFIX,_ArtifactRedirect,_get
+from urllib.request import Request
 NOW=datetime(2026,11,14,17,0,tzinfo=timezone.utc)
 def source():
     return {"schema_version":1,"contract":CONTRACT,
@@ -72,6 +73,25 @@ class HandoffConsumerTests(unittest.TestCase):
             raise AssertionError(url)
         result=retrieve("private-token-only",get=get,now=NOW)
         self.assertEqual(result["source_run_id"],1234)
+    def test_artifact_redirect_strips_private_credentials(self):
+        original=Request("https://api.github.com/repos/"+PRIVATE+"/actions/artifacts/123/zip",
+                         headers={"Authorization":"Bearer SUPER_SECRET_DO_NOT_SHARE",
+                                  "X-GitHub-Api-Version":"2022-11-28"})
+        redirected=_ArtifactRedirect().redirect_request(original,None,302,"Found",{},
+            "https://productionresults.example.blob.core.windows.net/run.zip?sig=fakesignature")
+        self.assertNotIn("authorization",[k.lower() for k in redirected.headers])
+        self.assertNotIn("x-github-api-version",[k.lower() for k in redirected.headers])
+        self.assertEqual(redirected.get_method(),"GET")
+        with self.assertRaisesRegex(ValueError,"Untrusted"):
+            _ArtifactRedirect().redirect_request(original,None,302,"Found",{},
+                "https://unrelated.example/steal")
+        with self.assertRaisesRegex(ValueError,"protocol"):
+            _ArtifactRedirect().redirect_request(original,None,302,"Found",{},
+                "http://productionresults.example.blob.core.windows.net/f")
+    def test_token_never_sent_to_untrusted_original_api_host(self):
+        with self.assertRaisesRegex(ValueError,"Untrusted"):
+            _get("https://unrelated.example/repos/"+PRIVATE+"/actions/runs",
+                 "SECRET_TOKEN",opener=lambda *_args,**_kwargs:self.fail("network"))
     def test_deduplicate_public_research_evidence(self):
         projection=validate(source(),run(),now=NOW)
         seen=[]
