@@ -9,8 +9,8 @@ on:
       - "src/parity_model_performance.py"
       - "tests/test_parity_recaps.py"
   schedule:
-    # Cover 8:15 AM Central in standard and daylight time.
-    - cron: "15 13,14 * * *"
+    # Cover 8:15 PM Central in standard and daylight time (UTC next day).
+    - cron: "15 1,2 * * *"
 permissions:
   contents: read
   issues: write
@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   recaps:
-    if: vars.STATRALLY_PARITY_PAUSED != 'true'
+    if: vars.STATRALLY_PARITY_PAUSED != 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -47,7 +47,7 @@ jobs:
           from zoneinfo import ZoneInfo
           print(datetime.now(ZoneInfo("America/Chicago")).hour)
           PY
-            if [ "$(cat "$RUNNER_TEMP/recap-hour")" -lt 8 ]; then
+            if [ "$(cat "$RUNNER_TEMP/recap-hour")" != 20 ]; then
               exit 0
             fi
           fi
@@ -79,7 +79,7 @@ jobs:
           from zoneinfo import ZoneInfo
           print(datetime.now(ZoneInfo("America/Chicago")).hour)
           PY
-            if [ "$(cat "$RUNNER_TEMP/model-performance-hour")" -lt 8 ]; then
+            if [ "$(cat "$RUNNER_TEMP/model-performance-hour")" != 20 ]; then
               exit 0
             fi
           fi
