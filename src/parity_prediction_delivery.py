@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 from datetime import datetime,timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from parity_discord import github,discord_send,BOT
 from parity_model_handoff_consumer import stamp
@@ -45,8 +46,11 @@ def cards(projection,sport,*,now=None):
         seen.add(row["id"])
         kickoff=stamp(row["kickoff_utc"])
         forecasted=stamp(row["issued_at"])
-        if forecasted!=issued or kickoff<=now:
-            # Never publish an expired pick or change original prediction.
+        if (forecasted!=issued or kickoff<=now
+            or kickoff.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
+               !=projection["input_day"]):
+            # Only today's genuinely pregame fixtures; future-date games
+            # receive their own subsequent daily picks, never today's label.
             continue
         p=row["p_even"] if row["prediction"]=="EVEN" else row["p_odd"]
         if type(p) not in (float,int) or not 0<p<1:
