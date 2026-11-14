@@ -31,6 +31,10 @@ class EvenOddPicksTests(unittest.TestCase):
             self.assertNotIn("decimal",embed["description"])
             self.assertNotIn("market odds",embed["description"].lower())
             self.assertIn("Experimental",embed["fields"][1]["value"])
+    def test_tomorrow_not_mislabeled_as_todays_picks(self):
+        snap=report()
+        snap["forecasts"][1]["kickoff_utc"]="2026-11-16T01:00:00+00:00"
+        self.assertEqual(cards(snap,"hockey",now=NOW),[])
     def test_postkickoff_does_not_backdate(self):
         snap=report()
         snap["forecasts"][1]["kickoff_utc"]="2026-11-14T16:00:00+00:00"
