@@ -216,7 +216,7 @@ def deliver(repo, issues, key, hook, message):
 def main():
     repo = os.environ["GITHUB_REPOSITORY"]
     now = datetime.now(timezone.utc)
-    day = now.astimezone(CENTRAL).date() - timedelta(days=1)
+    day = now.astimezone(CENTRAL).date()
     windows = periods(day)
     issues = [row for row in history(repo, "/issues?state=all") if "pull_request" not in row]
     rows = collect(repo, issues, min(start for start, _ in windows.values()), day, now)
