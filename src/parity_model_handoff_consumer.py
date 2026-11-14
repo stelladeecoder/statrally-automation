@@ -151,8 +151,11 @@ class _ArtifactRedirect(HTTPRedirectHandler):
         if host!=origin.hostname:
             # The target has a signed URL. Reusing the GitHub Authorization
             # header on Azure can fail authentication or leak the PAT.
-            for name in ("Authorization","X-GitHub-Api-Version","Accept"):
-                next_request.remove_header(name)
+            sensitive={"authorization","x-github-api-version","accept"}
+            for mapping in (next_request.headers,next_request.unredirected_hdrs):
+                for key in list(mapping):
+                    if key.lower() in sensitive:
+                        del mapping[key]
         return next_request
 
 def _get(url,token,*,opener=None,binary=False):
