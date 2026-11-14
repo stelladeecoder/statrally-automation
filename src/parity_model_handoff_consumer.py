@@ -13,7 +13,8 @@ import re
 import zipfile
 from datetime import datetime,timezone
 from pathlib import Path
-from urllib.request import Request,urlopen
+from urllib.request import Request,urlopen,build_opener,HTTPRedirectHandler
+from urllib.parse import urlsplit
 from parity_discord import github,BOT
 
 PRIVATE="stelladeecoder/statrally-even-odd-models"
@@ -129,7 +130,37 @@ def validate(data,run,*,now=None):
         "forecasts":safe,
         "holdout_evaluated":{k:x["evaluated"] for k,x in data["holdout_by_league"].items()}}
 
-def _get(url,token,*,opener=urlopen,binary=False):
+class _ArtifactRedirect(HTTPRedirectHandler):
+    """Do not forward a private GitHub token to the artifact download host."""
+    def redirect_request(self,req,fp,code,msg,headers,newurl):
+        origin=urlsplit(req.full_url)
+        target=urlsplit(newurl)
+        host=target.hostname or ""
+        if target.scheme!="https" or target.username or target.password:
+            raise ValueError("Unsafe artifact redirect protocol")
+        if origin.hostname=="api.github.com":
+            allowed=(host=="objects.githubusercontent.com"
+                     or host.endswith(".blob.core.windows.net"))
+            if not allowed:
+                raise ValueError("Untrusted artifact redirect destination")
+        elif host!=origin.hostname:
+            raise ValueError("Unexpected second artifact redirect")
+        next_request=super().redirect_request(req,fp,code,msg,headers,newurl)
+        if next_request is None:
+            return None
+        if host!=origin.hostname:
+            # The target has a signed URL. Reusing the GitHub Authorization
+            # header on Azure can fail authentication or leak the PAT.
+            for name in ("Authorization","X-GitHub-Api-Version","Accept"):
+                next_request.remove_header(name)
+        return next_request
+
+def _get(url,token,*,opener=None,binary=False):
+    parts=urlsplit(url)
+    if (parts.scheme!="https" or parts.hostname!="api.github.com"
+        or not parts.path.startswith("/repos/"+PRIVATE+"/actions/")):
+        raise ValueError("Untrusted private repository API endpoint")
+    opener=opener or build_opener(_ArtifactRedirect()).open
     req=Request(url,headers={
         "Authorization":"Bearer "+token,
         "Accept":"application/vnd.github+json",
