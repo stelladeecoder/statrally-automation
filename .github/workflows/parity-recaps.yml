@@ -51,3 +51,17 @@ jobs:
             fi
           fi
           python src/parity_recaps.py
+      - name: Post individual Even/Odd results
+        if: ${{ !cancelled() }}
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          SOCCER_RESULTS_HOOK: ${{ secrets.STATRALLY_SOCCER_RESULTS_WEBHOOK || secrets.STATRALLY_RESULTS_DISCORD_WEBHOOK }}
+          NHL_RESULTS_HOOK: ${{ secrets.STATRALLY_NHL_RESULTS_WEBHOOK }}
+          RESULT_TEST: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Enable individual results and verify both Discord routes' }}
+        run: |
+          if [ "$RESULT_TEST" = true ]; then
+            python src/parity_individual_results.py --test
+          else
+            python src/parity_individual_results.py
+          fi
