@@ -59,10 +59,9 @@ def pages(report,sport):
             timestamp=datetime.fromisoformat(game["kickoff_utc"].replace("Z","+00:00"))
             if timestamp.tzinfo is None:
                 raise ValueError("Unverified kickoff clock")
-            p=game["forecast"]
-            detail=(f"EVEN {p['p_even']:.1%} · ODD {p['p_odd']:.1%}"
-                    if p["status"]=="research_prediction" else "Insufficient history")
-            body.append(f"• {game['away']} @ {game['home']} · <t:{int(timestamp.timestamp())}:t>\n  {detail}")
+            # Watchlists show schedule only. Probabilities and market prices
+            # belong exclusively in approved picks posts, not watchlists.
+            body.append(f"• {game['away']} @ {game['home']} · <t:{int(timestamp.timestamp())}:t>")
     # Keep complete records, never replace missing rows with 'and N more'.
     batches=[]
     current=[]
@@ -81,15 +80,16 @@ def pages(report,sport):
     for index,description in enumerate(batches,1):
         qualifier=f" · {index}/{len(batches)}" if len(batches)>1 else ""
         payloads.append({"embeds":[{
-            "title":f"{SPORTS[sport]} EVEN/ODD | {report['day_central']} CT{qualifier}",
+            "title":f"{SPORTS[sport]} Watchlist | {report['day_central']} CT{qualifier}",
             "description":description,
             "color":BLUE,
-            "footer":{"text":f"{total} upcoming {sport} games · Uncalibrated research only · No market/odds verification · Not betting picks"}
+            "footer":{"text":f"{total} upcoming {sport} games · Schedule only · No probabilities or betting odds · Not picks"}
         }],"allowed_mentions":{"parse":[]}})
-    # Exactly all games should be present in the rendered messages.
-    marker_count=sum(p["embeds"][0]["description"].count("\n  EVEN ")+p["embeds"][0]["description"].count("\n  Insufficient history") for p in payloads)
-    if marker_count!=total:
-        raise ValueError("Discord pages dropped fixture rows")
+    # Check every fixture appears exactly once, even when paginated.
+    all_text="\n".join(p["embeds"][0]["description"] for p in payloads)
+    expected=[f"• {g['away']} @ {g['home']} · " for comp in comps for g in comp["fixtures"]]
+    if any(all_text.count(label)!=expected.count(label) for label in set(expected)):
+        raise ValueError("Discord pages dropped or duplicated fixture rows")
     return payloads
 
 def _issue_for(repo,title,*,call):
