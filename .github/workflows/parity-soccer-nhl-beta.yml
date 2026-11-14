@@ -6,6 +6,8 @@ on:
     paths:
       - "src/parity_research.py"
       - "src/parity_discord.py"
+      - "src/parity_sport_delivery.py"
+      - "tests/test_parity_sport_delivery.py"
       - "tests/test_parity_research.py"
       - "src/parity_forward_ledger.py"
       - "tests/test_parity_forward_ledger.py"
@@ -19,6 +21,8 @@ on:
     paths:
       - "src/parity_research.py"
       - "src/parity_discord.py"
+      - "src/parity_sport_delivery.py"
+      - "tests/test_parity_sport_delivery.py"
       - "src/parity_forward_ledger.py"
       - "tests/test_parity_research.py"
       - "tests/test_parity_forward_ledger.py"
@@ -49,6 +53,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_parity_forward_ledger.py' -v
           python -m unittest discover -s tests -p 'test_parity_public_snapshot.py' -v
           python -m unittest discover -s tests -p 'test_parity_page.py' -v
+          python -m unittest discover -s tests -p 'test_parity_sport_delivery.py' -v
       - name: Read live ESPN final scores and upcoming fixtures
         env:
           PYTHONPATH: src
@@ -71,11 +76,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python src/parity_forward_ledger.py archive --report out/statrally-parity-research.json
-      - name: Send early research beta update to configured StatRally Discord, on main only
+      - name: Verify independent soccer and NHL messages with all eligible fixtures
+        env:
+          PYTHONPATH: src
+        run: python src/parity_sport_delivery.py --report out/statrally-parity-research.json
+      - name: Deliver soccer and NHL as separate Discord research reports
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           PYTHONPATH: src
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           STATRALLY_PARITY_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_PARITY_DISCORD_WEBHOOK || secrets.STATRALLY_DISCORD_WEBHOOK }}
-        run: python src/parity_discord.py --report out/statrally-parity-research.json --send
+          STATRALLY_PARITY_SOCCER_WEBHOOK: ${{ secrets.STATRALLY_PARITY_SOCCER_WEBHOOK }}
+          STATRALLY_PARITY_HOCKEY_WEBHOOK: ${{ secrets.STATRALLY_PARITY_HOCKEY_WEBHOOK }}
+        run: python src/parity_sport_delivery.py --report out/statrally-parity-research.json --send
