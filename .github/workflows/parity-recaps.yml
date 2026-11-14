@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/parity-recaps.yml"
       - "src/parity_recaps.py"
+      - "src/parity_model_performance.py"
       - "tests/test_parity_recaps.py"
   schedule:
     # Cover 8:15 AM Central in standard and daylight time.
@@ -65,3 +66,21 @@ jobs:
           else
             python src/parity_individual_results.py
           fi
+      - name: Refresh private Even/Odd model performance
+        if: ${{ !cancelled() }}
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          STATRALLY_MODEL_PERFORMANCE_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_MODEL_PERFORMANCE_DISCORD_WEBHOOK }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            python - <<'PY' > "$RUNNER_TEMP/model-performance-hour"
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          print(datetime.now(ZoneInfo("America/Chicago")).hour)
+          PY
+            if [ "$(cat "$RUNNER_TEMP/model-performance-hour")" -lt 8 ]; then
+              exit 0
+            fi
+          fi
+          python src/parity_model_performance.py
