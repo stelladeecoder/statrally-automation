@@ -39,12 +39,12 @@ Configured competition coverage does **not** guarantee a game on every date or a
 ## The StatRally experience
 
 - **Match watchlists:** Upcoming games and start times, organized by sport.
-- **Even/Odd research:** Experimental analysis, separate from the watchlist display.
+- **Even/Odd predictions:** Experimental pregame classifications of the total as EVEN or ODD; no market-price or EV filter.
 - **Results:** Independently checked final-score outcomes where available.
 - **Performance tracking:** Transparent evaluation of original, timestamped research forecasts.
 - **Free access:** Community and web experiences are intended to be free.
 
-Watchlists contain **matchups and scheduled times only**. Model probabilities and market odds belong in dedicated picks experiences **only after the necessary validation and price checks**. No qualified betting picks are currently activated by the parity research beta.
+Watchlists contain **matchups and scheduled times only**. The independent model generates **experimental EVEN/ODD classifications** for eligible pregame soccer and NHL fixtures. A classification chooses the more likely parity side based on its fitted research probability; it **does not require betting odds, sportsbook prices, or EV calculations**. Forecast confidence and historical calibration limitations are displayed separately from watchlists. Dedicated Discord picks posting requires the sport-specific picks-channel webhook to be configured; the predictions are otherwise retained in timestamped GitHub evidence.
 
 ## 📱 Mobile experience coming soon
 
