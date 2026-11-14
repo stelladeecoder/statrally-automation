@@ -1,0 +1,34 @@
+name: StatRally Even/Odd admin alerts
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/parity-admin-alerts.yml", "src/parity_admin_alerts.py"]
+  schedule:
+    - cron: "25 * * * *"
+  workflow_run:
+    workflows: ["Read private Even Odd model handoff into research ledger", "StatRally Even/Odd Discord recaps"]
+    types: [completed]
+permissions:
+  actions: read
+  contents: read
+  issues: write
+concurrency:
+  group: statrally-evenodd-admin-alerts
+  cancel-in-progress: false
+jobs:
+  monitor:
+    if: vars.STATRALLY_PARITY_PAUSED != 'true' && (github.event_name != 'workflow_run' || (github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Check scheduled runs and alert on failures
+        env:
+          PYTHONPATH: src
+          GH_TOKEN: ${{ github.token }}
+          STATRALLY_ADMIN_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_ADMIN_DISCORD_WEBHOOK }}
+        run: python3 src/parity_admin_alerts.py
