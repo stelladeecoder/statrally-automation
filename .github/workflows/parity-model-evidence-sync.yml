@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: "15 11 * * *"
     - cron: "15 15 * * *"  # Later refresh to consume a delayed private model export
+    - cron: "15 17 * * *"  # Final fallback if either earlier GitHub cron is missed
   push:
     branches: [main]
     paths:
