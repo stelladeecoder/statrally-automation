@@ -63,6 +63,7 @@ class TestMoneylineDiscord(unittest.TestCase):
         r = example("watchlist", "NO_BET")
         payload = render(r, "watchlist", now=NOW)[0]["embeds"][0]
         self.assertEqual(payload["color"], BLUE)
+        self.assertEqual(render(r, "watchlist", now=NOW)[0]["username"], "StatRally NHL Watchlist")
         for label in ("Model Win Prob", "Kalshi Executable Ask",
                       "Fee:", "Orderbook Depth", "Net EV", "Odds Tier",
                       "NO BET", "Away @ Home"):
@@ -77,6 +78,7 @@ class TestMoneylineDiscord(unittest.TestCase):
     def test_picks_teal_tier_and_thresholds(self):
         payload = render(example("picks"), "picks", now=NOW)[0]["embeds"][0]
         self.assertEqual(payload["color"], TEAL)
+        self.assertEqual(render(example("picks"), "picks", now=NOW)[0]["username"], "StatRally NHL Picks")
         desc = payload["description"]
         self.assertIn("[PAPER TRADE]", desc)
         self.assertIn("Short favorite", desc)
@@ -107,6 +109,7 @@ class TestMoneylineDiscord(unittest.TestCase):
         first = cards[0]["embeds"][0]
         score = cards[-1]["embeds"][0]
         self.assertEqual(first["color"], GREEN)
+        self.assertTrue(all(c["username"] == "StatRally NHL Results" for c in cards))
         self.assertIn("WIN", first["title"])
         self.assertIn("Entry Ask", first["description"])
         self.assertIn("Puck-Drop Closing Ask", first["description"])
