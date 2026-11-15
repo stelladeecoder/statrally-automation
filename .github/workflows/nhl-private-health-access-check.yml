@@ -1,0 +1,38 @@
+name: One-time NHL private snapshot health access diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/nhl-private-health-access-check.yml
+permissions:
+  contents: read
+jobs:
+  verify-readonly-private-health-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify existing models-read token can read PRIVATE issue receipts without exposing credentials
+        env:
+          TOKEN: ${{ secrets.STATRALLY_MODELS_READ_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from urllib.request import Request,urlopen
+          from urllib.error import HTTPError,URLError
+          if not os.environ.get("TOKEN"):
+              print("NHL_PRIVATE_ISSUES_READ_ACCESS="+json.dumps({"allowed":False,"reason":"secret_missing"}))
+              raise SystemExit(0)
+          req=Request("https://api.github.com/repos/stelladeecoder/statrally-even-odd-models/issues?per_page=1",
+                      method="GET",headers={"Accept":"application/vnd.github+json",
+                      "Authorization":"Bearer "+os.environ["TOKEN"]})
+          try:
+              with urlopen(req,timeout=15) as r:
+                  code=r.status
+          except HTTPError as e:
+              code=e.code
+          except URLError:
+              code=0
+          print("NHL_PRIVATE_ISSUES_READ_ACCESS="+json.dumps({
+              "allowed":code==200,"http_code":code,
+              "note":"Private issue metadata GET only, no contents disclosed or messages sent"}))
+          PY
