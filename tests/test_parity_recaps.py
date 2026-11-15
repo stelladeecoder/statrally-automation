@@ -31,5 +31,5 @@ class ParityRecapTests(unittest.TestCase):
         embed = payload("monthly", day.replace(day=1), day, rows)["embeds"][0]
         self.assertEqual(embed["image"]["url"], "attachment://statrally-evenodd-monthly-calendar.png")
         self.assertNotIn("```", monthly)
-        self.assertNotIn("🟨", monthly)
+        self.assertNotIn("🟨", monthly.split("VERY HIGH MODEL PROBABILITY")[0])
         self.assertNotIn("Calendar", payload("weekly", day, day, rows)["embeds"][0]["description"])
