@@ -9,6 +9,7 @@ from parity_discord import RESERVATION, discord_send, github, reservation
 from parity_research import CENTRAL
 
 WORKFLOWS = {
+    "parity-soccer-nhl-beta.yml": ("Soccer/NHL matchups", time(5, 15)),
     "parity-model-evidence-sync.yml": ("Picks", time(7, 15)),
     "parity-recaps.yml": ("Individual results and recaps", time(21, 15)),
 }
