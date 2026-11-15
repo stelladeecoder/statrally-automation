@@ -83,7 +83,7 @@ def collect(repo, issues, start, end, now):
         day = date.fromisoformat(title[len(TITLE):].split(" | ")[0])
         if start <= day <= end:
             prior = slates.get(day)
-            if prior is None or issue["number"] < prior["number"]:
+            if prior is None or issue["number"] > prior["number"]:
                 slates[day] = issue
 
     results = []
@@ -216,7 +216,9 @@ def deliver(repo, issues, key, hook, message):
 def main():
     repo = os.environ["GITHUB_REPOSITORY"]
     now = datetime.now(timezone.utc)
-    day = now.astimezone(CENTRAL).date()
+    local_now = now.astimezone(CENTRAL)
+    # Early-morning recovery completes the previous evening's reporting day.
+    day = local_now.date() - timedelta(days=1) if local_now.hour < 8 else local_now.date()
     windows = periods(day)
     issues = [row for row in history(repo, "/issues?state=all") if "pull_request" not in row]
     rows = collect(repo, issues, min(start for start, _ in windows.values()), day, now)
