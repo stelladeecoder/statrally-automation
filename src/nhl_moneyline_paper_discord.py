@@ -77,8 +77,10 @@ def validate(report, stage, *, now=None):
         if stage != "results":
             _time(row["entry_observed_utc"])
             before = _decimal(row.get("minutes_before_start"))
-            if before is None or not 45 <= before <= 60:
-                raise ValueError("Watchlist/picks must be 45-60 minutes pre-puck")
+            measured = (_time(row["game_start_utc"]) - _time(row["entry_observed_utc"])).total_seconds() / 60
+            if (before is None or not 45 <= before <= 60 or
+                not 45 <= measured <= 60 or abs(Decimal(str(measured)) - before) > Decimal("0.1")):
+                raise ValueError("Actual entry snapshot must be 45-60 minutes pre-puck")
             if row.get("status") not in ("PAPER_TRADE", "NO_BET"):
                 raise ValueError("Missing paper signal status")
             if row["status"] == "PAPER_TRADE":
@@ -105,73 +107,235 @@ def validate(report, stage, *, now=None):
     return rows
 
 
-def _format(row, stage):
-    name = row["fixture"].replace("@", "at")
-    team = row["selected_team"]
-    p = _decimal(row["model_probability"])
-    lines = [f"**{name}** · {team} YES · Model {p:.1%}"]
-    if stage != "results":
-        ask = _decimal(row.get("ask_dollars"))
-        fee = _decimal(row.get("fee_dollars"))
-        ev = _decimal(row.get("net_ev_on_cost"))
-        depth = _decimal(row.get("depth_contracts"))
-        quote = ("Ask unavailable" if ask is None else f"Ask {ask:.2f} USD")
-        quote += (" · Fee unverified" if fee is None else f" · Fee ${fee:.2f}")
-        quote += (" · Depth unavailable" if depth is None else f" · Depth {depth} contracts")
-        lines.append(quote)
-        lines.append("Net EV UNKNOWN" if ev is None else f"Net EV {ev:+.2%}")
-        if row["status"] == "PAPER_TRADE":
-            tags = " / ".join("+" + str(Decimal(t) * 100) + "%" for t in THRESHOLDS if ev >= Decimal(t))
-            lines.append(f"**PAPER TRADE** · {BANDS[row['band']]} · Thresholds {tags}")
-        else:
-            lines.append("**NO BET** · Not qualified / insufficient verified market data")
+BLUE = 0x3498DB
+TEAL = 0x1ABC9C
+GREEN = 0x2ECC71
+RED = 0xE74C3C
+NEUTRAL = 0x95A5A6
+
+
+def _money(value):
+    d = _decimal(value)
+    return "Unavailable" if d is None else f"USD {d:.2f}"
+
+
+def _tier(row):
+    ask = _decimal(row.get("ask_dollars"))
+    if ask is None:
+        return "Unknown (no executable ask)"
+    if not 0 < ask < 1:
+        raise ValueError("Invalid selected-side executable ask")
+    if ask < Decimal(".50"):
+        code = "underdog"
+    elif ask < Decimal(".60"):
+        code = "short_favorite"
     else:
-        lines.append(f"Settlement: **{row['status']}**")
-        close = _decimal(row.get("closing_ask_dollars"))
-        lines.append("Closing ask: " + ("missing" if close is None else f"${close:.2f}"))
-        move = _decimal(row.get("ask_price_move_dollars"))
-        lines.append("Entry-to-close ask movement: " + ("unavailable" if move is None else f"${move:+.3f} (proxy, not executed CLV)"))
-        profit = _decimal(row.get("paper_profit_dollars"))
-        lines.append("Post-fee paper P&L: " + ("pending" if profit is None else f"${profit:+.2f}"))
+        code = "heavy_favorite"
+    if row.get("status") == "PAPER_TRADE" and row.get("band") != code:
+        raise ValueError("Paper signal tier does not match its executable ask")
+    return BANDS[code]
+
+
+def _card(title, description, color, *, footer=None, fields=None):
+    if len(description) > MAX_DESC:
+        raise ValueError("Oversize mobile Discord card")
+    embed = {"title": title, "description": description, "color": color,
+             "footer": {"text": footer or
+                        "StatRally · NHL Moneyline · [PAPER TRADE] research only · No real orders"}}
+    if fields:
+        embed["fields"] = fields
+    return {"embeds": [embed], "allowed_mentions": {"parse": []}}
+
+
+def _validate_moneyline_evidence(row, stage):
+    p = _decimal(row.get("model_probability"))
+    if p is None or not Decimal("0") <= p <= Decimal("1"):
+        raise ValueError("Invalid model probability")
+    ask = _decimal(row.get("ask_dollars"))
+    fee = _decimal(row.get("fee_dollars"))
+    ev = _decimal(row.get("net_ev_on_cost"))
+    depth = _decimal(row.get("depth_contracts"))
+    if ask is not None and not Decimal("0") < ask < Decimal("1"):
+        raise ValueError("Quote out of contract bounds")
+    if fee is not None and fee < 0:
+        raise ValueError("Negative market fee")
+    if depth is not None and depth < 0:
+        raise ValueError("Negative book depth")
+    if stage == "picks" and row["status"] != "PAPER_TRADE":
+        return
+    if row["status"] == "PAPER_TRADE":
+        if (row.get("fee_verified") is not True or
+            ask is None or fee is None or ev is None or
+            depth is None or depth < 1):
+            raise ValueError("Paper signal missing verified price/fee/EV/depth")
+        if abs(ev - (p / (ask + fee) - Decimal("1"))) > Decimal(".005"):
+            raise ValueError("Net EV inconsistent with model probability and all-in price")
+        if ev < Decimal(THRESHOLDS[0]):
+            raise ValueError("Below the first paper EV threshold")
+        _tier(row)
+    elif row.get("fee_verified") is not True and ev is not None:
+        # NO BET may contain an unverified tentative price but never show computed EV.
+        raise ValueError("No EV figures from unverified fees")
+    if stage == "results" and row["status"] == "SETTLED":
+        if type(row.get("paper_win")) is not bool:
+            raise ValueError("Settled result requires a verified WIN/LOSS bool")
+        if (row.get("settlement_verified") is not True or
+            row.get("fee_verified") is not True or
+            ask is None or fee is None or
+            row.get("closing_ask_dollars") is None or
+            row.get("paper_profit_dollars") is None):
+            raise ValueError("Incomplete verified paper outcome")
+
+
+def _pregame_text(row):
+    fixture = row["fixture"]
+    p = _decimal(row["model_probability"])
+    fee_ok = row.get("fee_verified") is True
+    fee = _decimal(row.get("fee_dollars")) if fee_ok else None
+    ev = _decimal(row.get("net_ev_on_cost")) if fee_ok else None
+    depth = _decimal(row.get("depth_contracts"))
+    status = row["status"]
+    text = [
+        f"**{fixture}**",
+        f"**{row['selected_team']} to WIN** · Kalshi YES",
+        f"**Model Win Prob:** {p:.1%}",
+        f"**Kalshi Executable Ask:** {_money(row.get('ask_dollars'))}",
+        f"**Fee:** {_money(fee)}" if fee_ok else "**Fee:** Unverified",
+        f"**Orderbook Depth:** {depth:g} contracts" if depth is not None else
+            "**Orderbook Depth:** Unavailable",
+        f"**Net EV (post-fee):** {ev:+.2%}" if ev is not None else
+            "**Net EV (post-fee):** UNKNOWN",
+        f"**Odds Tier:** {_tier(row)}",
+    ]
+    if status == "PAPER_TRADE":
+        passed = ["+" + str(Decimal(t)*100) + "%" for t in THRESHOLDS
+                  if ev is not None and ev >= Decimal(t)]
+        text.append("**[PAPER TRADE] QUALIFIED** · " + " / ".join(passed))
+    else:
+        text.append("**NO BET** · Not qualified or insufficient verified market evidence")
+    return "\n".join(text)
+
+
+def _outcome_text(row):
+    status = row["status"]
+    lines = [f"**{row['fixture']}**",
+             f"**Selected team:** {row['selected_team']} · Kalshi YES",
+             f"**Model Win Prob:** {_decimal(row['model_probability']):.1%}"]
+    if status != "SETTLED":
+        lines.extend([f"**Status:** {status}",
+                      "**Entry / Closing CLV:** Pending verified settlement and snapshots",
+                      "**Post-Fee Paper P&L:** Pending"])
+        return "\n".join(lines)
+    entry = _decimal(row["ask_dollars"])
+    closing = _decimal(row["closing_ask_dollars"])
+    if not 0 < closing < 1:
+        raise ValueError("Invalid closing executable ask")
+    entry_at = _time(row["entry_observed_utc"])
+    closing_at = _time(row["closing_observed_utc"])
+    start = _time(row["game_start_utc"])
+    if not (45 <= (start-entry_at).total_seconds()/60 <= 60 and
+            0 <= (start-closing_at).total_seconds()/60 <= 5 and
+            entry_at < closing_at):
+        raise ValueError("Entry and close observations are not within verified windows")
+    move = closing-entry
+    if row.get("ask_price_move_dollars") is not None and abs(
+            _decimal(row["ask_price_move_dollars"])-move) > Decimal(".0001"):
+        raise ValueError("Stored close movement conflicts with quote pair")
+    contracts = _decimal(row.get("paper_contracts", 1))
+    if (contracts is None or contracts <= 0 or contracts != contracts.to_integral_value()):
+        raise ValueError("Invalid paper contract count")
+    actual_profit = _decimal(row["paper_profit_dollars"])
+    expected_profit = (Decimal("1") if row["paper_win"] else Decimal("0")) * contracts - entry * contracts - _decimal(row["fee_dollars"])
+    if abs(actual_profit - expected_profit) > Decimal(".01"):
+        raise ValueError("Post-fee paper P&L inconsistent with YES settlement, entry and fees")
+    lines.extend([
+        f"**Result:** {'WIN' if row['paper_win'] else 'LOSS'}",
+        f"**Entry Ask:** {_money(entry)} · **Puck-Drop Closing Ask:** {_money(closing)}",
+        f"**CLV Proxy (ask movement):** {move:+.3f} USD",
+        "**CLV Note:** Quote-to-quote movement only, not an executed fill",
+        f"**Entry Fee:** {_money(row.get('fee_dollars'))} · {contracts:g} paper contract(s)",
+        f"**Post-Fee Paper P&L:** {_money(row['paper_profit_dollars'])}",
+    ])
     return "\n".join(lines)
+
+
+def _scorecard(report):
+    totals = report.get("cumulative", {})
+    n = totals.get("settled_paper_games")
+    if type(n) is not int or n < 0:
+        raise ValueError("Verified cumulative paper game count required")
+    roi = _decimal(totals.get("net_paper_roi"))
+    if roi is not None and (roi < Decimal("-1") or not roi.is_finite()):
+        raise ValueError("Bad cumulative paper ROI")
+    wins = totals.get("wins")
+    losses = totals.get("losses")
+    if any(type(x) is not int or x < 0 for x in (wins, losses)
+           if x is not None):
+        raise ValueError("Bad cumulative win/loss totals")
+    if wins is not None and losses is not None and wins+losses != n:
+        raise ValueError("Scorecard wins/losses differ from completed paper sample")
+    body = [f"**Completed [PAPER TRADE] Games:** {n}",
+            f"**Validation Progress:** {n}/150 minimum · {n}/250 extended",
+            f"**Post-Fee Paper ROI:** {roi:+.2%}" if roi is not None else
+                "**Post-Fee Paper ROI:** Pending verified capital and settlement",
+            "**Real Orders:** 0 · Disabled"]
+    if wins is not None and losses is not None:
+        body.insert(1, f"**Record:** {wins} WIN / {losses} LOSS")
+    return _card("📊 NHL MONEYLINE | PAPER SCORECARD",
+                 "\n".join(body), BLUE,
+                 footer="StatRally · Prospective paper sample only · 150–250 games for review")
 
 
 def render(report, stage, *, now=None):
     rows = validate(report, stage, now=now)
     if stage == "picks":
         rows = [r for r in rows if r["status"] == "PAPER_TRADE"]
-    heading = {"watchlist": "NHL MONEYLINE | FULL PAPER WATCHLIST",
-               "picks": "NHL MONEYLINE | QUALIFIED PAPER SIGNALS",
-               "results": "NHL MONEYLINE | PAPER RESULTS"}[stage]
-    chunks = []
-    part = []
-    for record in rows:
-        line = _format(record, stage)
-        if len(line) > MAX_DESC:
-            raise ValueError("Oversize NHL description")
-        if part and len("\n\n".join(part + [line])) > MAX_DESC:
-            chunks.append("\n\n".join(part))
-            part = []
-        part.append(line)
-    if part:
-        chunks.append("\n\n".join(part))
-    if not chunks:
-        chunks = ["No qualified paper signals." if stage == "picks" else "No validated games in this report."]
-    if len(chunks) > 10:
-        raise ValueError("Too many Discord embeds")
-    if stage == "results":
-        totals = report.get("cumulative", {})
-        if not (isinstance(totals.get("settled_paper_games"), int)
-                and totals["settled_paper_games"] >= 0):
-            raise ValueError("Missing verified cumulative sample count")
-        net = _decimal(totals.get("net_paper_roi"))
-        chunks[0] += f"\n\n**Running sample:** {totals['settled_paper_games']} settled paper games"
-        chunks[0] += (" · ROI pending" if net is None else f" · Net paper ROI {net:+.2%}")
-    return [{"embeds": [{"title": heading + (f" ({i}/{len(chunks)})" if len(chunks) > 1 else ""),
-                         "description": chunk,
-                         "color": {"watchlist": 0x3498db, "picks": 0x3498db, "results": 0x95a5a6}[stage],
-                         "footer": {"text": "StatRally research · PAPER ONLY · No real orders or verified fills"}}],
-             "allowed_mentions": {"parse": []}} for i, chunk in enumerate(chunks, 1)]
+    for row in rows:
+        _validate_moneyline_evidence(row, stage)
+    cards = []
+    if stage in ("watchlist", "picks"):
+        title = ("🏒 NHL | DAILY MONEYLINE WATCHLIST [PAPER]"
+                 if stage == "watchlist" else
+                 "🏒 NHL | MONEYLINE PICKS [PAPER TRADE]")
+        color = BLUE if stage == "watchlist" else TEAL
+        if not rows:
+            return [_card(title, "No qualified paper trades in this slate.",
+                          color)]
+        # Match the original compact watchlist / picks design: one grouped
+        # mobile card per page rather than a noisy separate post for each game.
+        headline = (f"**{len(rows)} UPCOMING GAMES** · NHL"
+                    if stage == "watchlist" else
+                    f"**{len(rows)} QUALIFIED [PAPER TRADE] SIGNALS** · NHL")
+        blocks = [_pregame_text(row) for row in rows]
+        groups = []
+        current = []
+        for block in blocks:
+            candidate = headline + "\n\n" + "\n\n".join(current + [block])
+            if len(candidate) > MAX_DESC and current:
+                groups.append(current)
+                current = []
+            if len(headline + "\n\n" + block) > MAX_DESC:
+                raise ValueError("One moneyline game exceeds Discord mobile limit")
+            current.append(block)
+        if current:
+            groups.append(current)
+        if len(groups) > 20:
+            raise ValueError("Excessive NHL moneyline slate pages")
+        for index, group in enumerate(groups, 1):
+            label = f" · {index}/{len(groups)}" if len(groups) > 1 else ""
+            description = headline + "\n\n" + "\n\n".join(group)
+            cards.append(_card(title+label, description, color))
+        return cards
+    # Results: retain the WIN / LOSS per-game cards, then append a scorecard.
+    for row in rows:
+        outcome = row["status"] == "SETTLED"
+        won = row.get("paper_win") is True if outcome else False
+        color = (GREEN if won else RED) if outcome else NEUTRAL
+        header = ("🟩 WIN" if won else "🟥 LOSS") if outcome else "⏳ PENDING"
+        cards.append(_card(f"{header} · 🏒 NHL MONEYLINE [PAPER TRADE]",
+                           _outcome_text(row), color))
+    cards.append(_scorecard(report))
+    return cards
 
 
 def route(stage, environ):

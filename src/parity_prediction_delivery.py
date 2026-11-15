@@ -139,6 +139,9 @@ def _reserve(repo,key,*,call=github):
     return created["number"]
 
 def publish_one(projection,sport,repo,webhook,*,now=None,call=github,sender=discord_send):
+    # NHL Even/Odd picks retired permanently from this Discord publisher.
+    if sport=="hockey":
+        return {"sport":"hockey","status":"retired_for_moneyline","delivered":0}
     parts=cards(projection,sport,now=now)
     if not parts:
         return {"sport":sport,"status":"no_unexpired_predictions","delivered":0}

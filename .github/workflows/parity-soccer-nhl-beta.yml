@@ -94,5 +94,4 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           STATRALLY_PARITY_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_PARITY_DISCORD_WEBHOOK || secrets.STATRALLY_DISCORD_WEBHOOK }}
           STATRALLY_PARITY_SOCCER_WEBHOOK: ${{ secrets.STATRALLY_PARITY_SOCCER_WEBHOOK }}
-          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
         run: python src/parity_sport_delivery.py --report out/statrally-parity-research.json --send

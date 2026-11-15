@@ -72,6 +72,10 @@ def main():
         rows = collect(repo, issues, day - timedelta(days=7), day, now)
     failures = set()
     for sport, hook in hooks.items():
+        # NHL Even/Odd result delivery retired; preserve independent soccer results.
+        if sport=="hockey":
+            print("hockey: retired_for_moneyline")
+            continue
         if not hook:
             failures.add(sport)
             print(f"{sport}: results webhook missing")

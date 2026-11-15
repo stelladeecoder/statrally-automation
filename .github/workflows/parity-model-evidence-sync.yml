@@ -58,8 +58,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           STATRALLY_SOCCER_EVENODD_PICKS_WEBHOOK: ${{ secrets.STATRALLY_SOCCER_EVENODD_PICKS_WEBHOOK }}
-          STATRALLY_NHL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NHL_PICKS_WEBHOOK }}
-          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
           STATRALLY_PARITY_SOCCER_WEBHOOK: ${{ secrets.STATRALLY_PARITY_SOCCER_WEBHOOK }}
           STATRALLY_PARITY_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_PARITY_DISCORD_WEBHOOK }}
         run: python src/parity_prediction_delivery.py --input out/model-handoff-evidence.json --send
