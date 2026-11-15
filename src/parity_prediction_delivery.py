@@ -139,6 +139,9 @@ def _reserve(repo,key,*,call=github):
     return created["number"]
 
 def publish_one(projection,sport,repo,webhook,*,now=None,call=github,sender=discord_send):
+    # Soccer Odd/Even picks retired for BTTS research; never post legacy picks.
+    if sport=="soccer":
+        return {"sport":"soccer","status":"retired_for_btts","delivered":0}
     # NHL Even/Odd picks retired permanently from this Discord publisher.
     if sport=="hockey":
         return {"sport":"hockey","status":"retired_for_moneyline","delivered":0}
