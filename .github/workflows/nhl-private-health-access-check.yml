@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Validate real private daily summary artifact ZIP via existing Actions-read secret
+      - name: Validate private ZIP redirect without forwarding GitHub bearer token
         env:
           PYTHONPATH: src
           TOKEN: ${{ secrets.STATRALLY_MODELS_READ_TOKEN }}
