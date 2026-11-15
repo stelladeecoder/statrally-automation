@@ -167,7 +167,9 @@ class TestMoneylineDiscord(unittest.TestCase):
         row["game_id"] = "fixture-2"
         r["games"].append(row)
         messages = render(r, "watchlist", now=NOW)
-        self.assertEqual(len(messages), 2)
+        self.assertEqual(len(messages), 1)
+        self.assertIn("2 UPCOMING GAMES", messages[0]["embeds"][0]["description"])
+        self.assertEqual(messages[0]["embeds"][0]["description"].count("Away @ Home"), 2)
         self.assertTrue(all(len(m["embeds"]) == 1 for m in messages))
 
 
