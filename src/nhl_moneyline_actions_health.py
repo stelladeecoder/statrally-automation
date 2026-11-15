@@ -8,8 +8,8 @@ import io
 import json
 import zipfile
 from datetime import date
-from urllib.request import Request, urlopen
-from urllib.parse import quote
+from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
+from urllib.parse import quote, urlsplit
 
 REPO="stelladeecoder/statrally-even-odd-models"
 ROOT="https://api.github.com/repos/"+REPO
@@ -17,7 +17,16 @@ SCHEMA="statrally-nhl-paper-health-summary-v1"
 PREFIX="nhl-moneyline-health-"
 FILE="nhl-moneyline-health.json"
 
-def read(url,token,*,opener=urlopen,binary=False):
+class _SafeArtifactRedirect(HTTPRedirectHandler):
+    """Never send a GitHub bearer token to blob storage after a 302."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        follow = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if follow is not None and urlsplit(newurl).hostname != urlsplit(req.full_url).hostname:
+            follow.remove_header("Authorization")
+        return follow
+
+
+def read(url,token,*,opener=None,binary=False):
     if not token:raise ValueError("Private-model Actions read token missing")
     if not url.startswith(ROOT+"/actions/"):
         raise ValueError("Only private model Actions GET endpoints allowed")
@@ -25,7 +34,8 @@ def read(url,token,*,opener=urlopen,binary=False):
         "Authorization":"Bearer "+token,
         "Accept":"application/vnd.github+json",
         "X-GitHub-Api-Version":"2022-11-28"})
-    with opener(request,timeout=30) as r:
+    http = opener or build_opener(_SafeArtifactRedirect()).open
+    with http(request,timeout=30) as r:
         value=r.read()
     return value if binary else json.loads(value)
 
