@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/parity-recaps.yml"
       - "src/parity_recaps.py"
+      - "src/parity_calendar.py"
       - "src/parity_model_performance.py"
       - "tests/test_parity_recaps.py"
   schedule:
@@ -29,6 +30,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install PNG calendar renderer
+        run: python -m pip install "Pillow>=10,<13"
       - name: Verify recap formatting and scoring
         env:
           PYTHONPATH: src
