@@ -6,6 +6,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
 from daily_results import edit_message
+from parity_calendar import NAME as CALENDAR_NAME, render_calendar, upload_image
 from m13_discord_embeds import CENTRAL
 from parity_discord import BOT, discord_send, github
 from parity_model_handoff_consumer import PREFIX, TITLE, stamp
@@ -156,31 +157,22 @@ def payload(kind, start, end, rows):
     lines.extend(line(label, [r for r in rows if r["sport"] == sport])
                  for sport, label in SPORTS)
     if kind == "monthly":
-        weeks = ["Sun      Mon      Tue      Wed      Thu      Fri      Sat"]
-        for week in calendar.Calendar(firstweekday=6).monthdayscalendar(start.year, start.month):
-            cells = []
-            for number in week:
-                current = start.replace(day=number) if number else None
-                if current is None or current > end:
-                    cells.append(" " * 9)
-                    continue
-                wins, total, _ = tally(r for r in rows if r["day"] == current)
-                symbol = "🟩" if wins * 2 > total else "🟥" if wins * 2 < total else "⬜"
-                cells.append(f"{number:2}{symbol}{f'{wins}/{total}' if total else '·':<5}")
-            weeks.append(" ".join(cells).rstrip())
-        lines.extend(["", "**Calendar · combined correct/graded**", "```", *weeks, "```"])
+        lines.extend(["", "**Calendar · combined daily accuracy**",
+                      "Green: 70%+ · Red: below 70% · Gray: no graded data"])
     stars = [r for r in rows if r["starred"]]
     lines.extend(["", "⭐ 🟨 **VERY HIGH MODEL PROBABILITY · 70%+**",
                   line("Combined", stars)])
     lines.extend(line(label, [r for r in stars if r["sport"] == sport])
                  for sport, label in SPORTS)
     lines.append("*Descriptive only, not validated reliability.*")
-    return {"embeds": [{"title": f"StatRally Even/Odd · {title}",
-                         "description": "\n".join(lines), "color": 0x3498DB}],
-            "allowed_mentions": {"parse": []}}
+    embed = {"title": f"StatRally Even/Odd · {title}",
+             "description": "\n".join(lines), "color": 0x3498DB}
+    if kind == "monthly":
+        embed["image"] = {"url": "attachment://" + CALENDAR_NAME}
+    return {"embeds": [embed], "allowed_mentions": {"parse": []}}
 
 
-def deliver(repo, issues, key, hook, message):
+def deliver(repo, issues, key, hook, message, *, calendar_image=None):
     import hashlib
 
     digest = hashlib.sha256(json.dumps(message, sort_keys=True).encode()).hexdigest()
@@ -196,13 +188,17 @@ def deliver(repo, issues, key, hook, message):
             return "already_current"
         if "message_id" not in receipt:
             raise RuntimeError("Previous recap delivery requires reconciliation")
-        edit_message(message, hook, receipt)
+        if calendar_image is not None:
+            upload_image(hook, message, calendar_image, receipt["message_id"])
+        else:
+            edit_message(message, hook, receipt)
         message_id = receipt["message_id"]
     else:
         issue = github("POST", repo, "/issues", {"title": key, "body": RECEIPT + "{}"})
         if type(issue.get("number")) is not int:
             raise RuntimeError("Recap reservation unconfirmed")
-        message_id = discord_send(hook, message)
+        message_id = (upload_image(hook, message, calendar_image)
+                      if calendar_image is not None else discord_send(hook, message))
     updated = github("PATCH", repo, f"/issues/{issue['number']}", {
         "state": "closed",
         "body": RECEIPT + json.dumps({"message_id": message_id, "digest": digest}),
@@ -235,7 +231,9 @@ def main():
             continue
         key = f"{RECAP_TITLE}{kind} | {start}"
         try:
-            result = deliver(repo, issues, key, hook, payload(kind, start, end, selected))
+            image = render_calendar(start, end, selected) if kind == "monthly" else None
+            result = deliver(repo, issues, key, hook, payload(kind, start, end, selected),
+                             calendar_image=image)
             print(f"{kind}: {result}")
         except Exception as exc:
             failed.append(kind)
