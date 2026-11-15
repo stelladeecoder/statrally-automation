@@ -32,9 +32,14 @@ jobs:
         env:
           PYTHONPATH: src
         run: python3 -m unittest discover -s tests -p 'test_m18_admin_monitor.py' -v
+      - name: Verify private NHL Moneyline snapshot health accounting
+        env:
+          PYTHONPATH: src
+        run: python3 -m unittest discover -s tests -p 'test_nhl_moneyline_admin_health.py' -v
       - name: Check missed runs and send one daily report, or alert on completed failure
         env:
           GH_TOKEN: ${{ github.token }}
+          STATRALLY_MODELS_READ_TOKEN: ${{ secrets.STATRALLY_MODELS_READ_TOKEN }}
           STATRALLY_ADMIN_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_ADMIN_DISCORD_WEBHOOK }}
           STATRALLY_SCHEDULER_PAUSED: ${{ vars.STATRALLY_SCHEDULER_PAUSED }}
           FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
