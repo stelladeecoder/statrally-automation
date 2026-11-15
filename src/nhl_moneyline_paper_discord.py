@@ -77,8 +77,10 @@ def validate(report, stage, *, now=None):
         if stage != "results":
             _time(row["entry_observed_utc"])
             before = _decimal(row.get("minutes_before_start"))
-            if before is None or not 45 <= before <= 60:
-                raise ValueError("Watchlist/picks must be 45-60 minutes pre-puck")
+            measured = (_time(row["game_start_utc"]) - _time(row["entry_observed_utc"])).total_seconds() / 60
+            if (before is None or not 45 <= before <= 60 or
+                not 45 <= measured <= 60 or abs(Decimal(str(measured)) - before) > Decimal("0.1")):
+                raise ValueError("Actual entry snapshot must be 45-60 minutes pre-puck")
             if row.get("status") not in ("PAPER_TRADE", "NO_BET"):
                 raise ValueError("Missing paper signal status")
             if row["status"] == "PAPER_TRADE":
@@ -166,7 +168,7 @@ def _validate_moneyline_evidence(row, stage):
             ask is None or fee is None or ev is None or
             depth is None or depth < 1):
             raise ValueError("Paper signal missing verified price/fee/EV/depth")
-        if p != 0 and abs(ev - (p / (ask + fee) - Decimal("1"))) > Decimal(".005"):
+        if abs(ev - (p / (ask + fee) - Decimal("1"))) > Decimal(".005"):
             raise ValueError("Net EV inconsistent with model probability and all-in price")
         if ev < Decimal(THRESHOLDS[0]):
             raise ValueError("Below the first paper EV threshold")
@@ -239,12 +241,19 @@ def _outcome_text(row):
     if row.get("ask_price_move_dollars") is not None and abs(
             _decimal(row["ask_price_move_dollars"])-move) > Decimal(".0001"):
         raise ValueError("Stored close movement conflicts with quote pair")
+    contracts = _decimal(row.get("paper_contracts", 1))
+    if (contracts is None or contracts <= 0 or contracts != contracts.to_integral_value()):
+        raise ValueError("Invalid paper contract count")
+    actual_profit = _decimal(row["paper_profit_dollars"])
+    expected_profit = (Decimal("1") if row["paper_win"] else Decimal("0")) * contracts - entry * contracts - _decimal(row["fee_dollars"])
+    if abs(actual_profit - expected_profit) > Decimal(".01"):
+        raise ValueError("Post-fee paper P&L inconsistent with YES settlement, entry and fees")
     lines.extend([
         f"**Result:** {'WIN' if row['paper_win'] else 'LOSS'}",
         f"**Entry Ask:** {_money(entry)} · **Puck-Drop Closing Ask:** {_money(closing)}",
         f"**CLV Proxy (ask movement):** {move:+.3f} USD",
         "**CLV Note:** Quote-to-quote movement only, not an executed fill",
-        f"**Entry Fee:** {_money(row.get('fee_dollars'))}",
+        f"**Entry Fee:** {_money(row.get('fee_dollars'))} · {contracts:g} paper contract(s)",
         f"**Post-Fee Paper P&L:** {_money(row['paper_profit_dollars'])}",
     ])
     return "\n".join(lines)
@@ -285,7 +294,7 @@ def render(report, stage, *, now=None):
         _validate_moneyline_evidence(row, stage)
     cards = []
     if stage in ("watchlist", "picks"):
-        title = ("🏒 NHL | DAILY MONEYLINE WATCHLIST [PAPER TRADE]"
+        title = ("🏒 NHL | DAILY MONEYLINE WATCHLIST [PAPER]"
                  if stage == "watchlist" else
                  "🏒 NHL | MONEYLINE PICKS [PAPER TRADE]")
         color = BLUE if stage == "watchlist" else TEAL
