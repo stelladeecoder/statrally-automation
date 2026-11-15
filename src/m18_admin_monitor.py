@@ -402,7 +402,7 @@ def main():
         raise SystemExit("Missing STATRALLY_ADMIN_DISCORD_WEBHOOK secret")
     now = datetime.now(timezone.utc)
     if sys.argv[1] == "watch":
-        from nhl_moneyline_admin_health import lines_for_day
+        from nhl_moneyline_actions_health import lines_for_day
         watch(repo, webhook, now=now,
               paused=os.environ.get("STATRALLY_SCHEDULER_PAUSED", "").lower() == "true",
               nhl_reader=lambda day: lines_for_day(
