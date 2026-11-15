@@ -289,7 +289,7 @@ def recent_failure_details(repo, run_id, call=api):
     return lines or ["- No failed job details available. The workflow may have been cancelled before jobs started; inspect the run and watchdog receipts"]
 
 
-def watch(repo, webhook, *, now, paused=False, call=api, sender=send):
+def watch(repo, webhook, *, now, paused=False, call=api, sender=send, nhl_reader=None):
     rows = list(issues(repo, call))
     number, data = state(repo, rows, call)
     runs = scheduler_runs(repo, since=now-timedelta(days=2), call=call)
@@ -331,11 +331,13 @@ def watch(repo, webhook, *, now, paused=False, call=api, sender=send):
             delivery = delivery_counts(repo, rows, start, end, call)
             verified_windows = completed_window_audit(repo, rows, call)
             window_lines = window_status_lines(day, verified_windows)
+            nhl_lines = (nhl_reader(day) if nhl_reader is not None else [])
             data["report_day"] = day.isoformat()
             save(repo, number, data, call)
             sender(webhook,
                    f"**StatRally Admin | Daily health report — {day.isoformat()} CT**\n"
                    + "\n".join(window_lines) + "\n"
+                   + ("\n".join(nhl_lines) + "\n" if nhl_lines else "")
                    + f"Scheduler executions: {len(daily)} | successful: {successes} | failed: {failures} | cancelled: {cancellations}\n"
                    + f"Confirmed Discord deliveries: {sum(delivery.values())} total\n"
                    + f"  Picks: {delivery['paper_picks']} | Watchlist pages: {delivery['watchlist_pages']} | Graded results: {delivery['graded_results']}\n"
@@ -400,8 +402,11 @@ def main():
         raise SystemExit("Missing STATRALLY_ADMIN_DISCORD_WEBHOOK secret")
     now = datetime.now(timezone.utc)
     if sys.argv[1] == "watch":
+        from nhl_moneyline_admin_health import lines_for_day
         watch(repo, webhook, now=now,
-              paused=os.environ.get("STATRALLY_SCHEDULER_PAUSED", "").lower() == "true")
+              paused=os.environ.get("STATRALLY_SCHEDULER_PAUSED", "").lower() == "true",
+              nhl_reader=lambda day: lines_for_day(
+                  day, token=os.environ.get("STATRALLY_MODELS_READ_TOKEN", "")))
     elif sys.argv[1] == "failure":
         failure(repo, webhook, os.environ["FAILED_RUN_ID"], now=now)
     else:
