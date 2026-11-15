@@ -28,7 +28,8 @@ class ParityRecapTests(unittest.TestCase):
         day = date(2026, 11, 14)
         rows = [{"day": day, "sport": "soccer", "starred": False, "correct": True}]
         monthly = payload("monthly", day.replace(day=1), day, rows)["embeds"][0]["description"]
-        grid = monthly.split("```")[1]
-        self.assertIn("14🟩1/1", grid)
-        self.assertNotIn("🟨", grid)
+        embed = payload("monthly", day.replace(day=1), day, rows)["embeds"][0]
+        self.assertEqual(embed["image"]["url"], "attachment://statrally-evenodd-monthly-calendar.png")
+        self.assertNotIn("```", monthly)
+        self.assertNotIn("🟨", monthly)
         self.assertNotIn("Calendar", payload("weekly", day, day, rows)["embeds"][0]["description"])
