@@ -26,7 +26,7 @@ jobs:
       - name: Safety and route unit tests
         run: python -m unittest discover -s tests -p 'test_nhl_moneyline_three_webhook_test.py' -v
   test-webhooks-once:
-    if: github.event_name == 'push' && github.event.head_commit.message == 'Enable one-time NHL Moneyline 3-webhook paper connectivity check'
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Enable one-time NHL Moneyline 3-webhook paper connectivity check')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
