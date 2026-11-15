@@ -45,3 +45,19 @@ jobs:
               except URLError: status=0
               print("NHL_PRIVATE_ACTIONS_READ_ACCESS="+json.dumps({"family":label,"allowed":status==200,"http_code":status}))
           PY
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate real private daily summary artifact ZIP via existing Actions-read secret
+        env:
+          PYTHONPATH: src
+          TOKEN: ${{ secrets.STATRALLY_MODELS_READ_TOKEN }}
+        run: |
+          python - <<'PY'
+          from nhl_moneyline_actions_health import load
+          import os,json
+          report=load('2026-11-14',token=os.environ['TOKEN'])
+          assert report is not None and report['source_repository']=='stelladeecoder/statrally-even-odd-models'
+          print('NHL_ADMIN_ARTIFACT_SMOKE='+json.dumps({'verified':True,'day':report['date_central'],
+               'status':report['status'],'orders_placed':report['orders_placed']}))
+          PY
