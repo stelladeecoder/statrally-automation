@@ -301,9 +301,30 @@ def render(report, stage, *, now=None):
         if not rows:
             return [_card(title, "No qualified paper trades in this slate.",
                           color)]
-        for index, row in enumerate(rows, 1):
-            cards.append(_card(f"{title} · {index}/{len(rows)}",
-                               _pregame_text(row), color))
+        # Match the original compact watchlist / picks design: one grouped
+        # mobile card per page rather than a noisy separate post for each game.
+        headline = (f"**{len(rows)} UPCOMING GAMES** · NHL"
+                    if stage == "watchlist" else
+                    f"**{len(rows)} QUALIFIED [PAPER TRADE] SIGNALS** · NHL")
+        blocks = [_pregame_text(row) for row in rows]
+        groups = []
+        current = []
+        for block in blocks:
+            candidate = headline + "\n\n" + "\n\n".join(current + [block])
+            if len(candidate) > MAX_DESC and current:
+                groups.append(current)
+                current = []
+            if len(headline + "\n\n" + block) > MAX_DESC:
+                raise ValueError("One moneyline game exceeds Discord mobile limit")
+            current.append(block)
+        if current:
+            groups.append(current)
+        if len(groups) > 20:
+            raise ValueError("Excessive NHL moneyline slate pages")
+        for index, group in enumerate(groups, 1):
+            label = f" · {index}/{len(groups)}" if len(groups) > 1 else ""
+            description = headline + "\n\n" + "\n\n".join(group)
+            cards.append(_card(title+label, description, color))
         return cards
     # Results: retain the WIN / LOSS per-game cards, then append a scorecard.
     for row in rows:
