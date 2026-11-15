@@ -1,0 +1,45 @@
+name: One-time NHL Moneyline three-channel PAPER connectivity test
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/nhl-moneyline-three-webhook-test.yml
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - src/nhl_moneyline_three_webhook_test.py
+      - tests/test_nhl_moneyline_three_webhook_test.py
+      - .github/workflows/nhl-moneyline-three-webhook-test.yml
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Safety and route unit tests
+        run: python -m unittest discover -s tests -p 'test_nhl_moneyline_three_webhook_test.py' -v
+  test-webhooks-once:
+    if: github.event_name == 'push' && github.event.head_commit.message == 'Enable one-time NHL Moneyline 3-webhook paper connectivity check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Confirm three channel routes and send labeled TEST / PAPER messages
+        env:
+          PYTHONPATH: src
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
+          STATRALLY_NHL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NHL_PICKS_WEBHOOK }}
+          STATRALLY_NHL_RESULTS_WEBHOOK: ${{ secrets.STATRALLY_NHL_RESULTS_WEBHOOK }}
+        run: python src/nhl_moneyline_three_webhook_test.py
