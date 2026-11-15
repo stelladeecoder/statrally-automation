@@ -4,6 +4,12 @@ on:
     paths:
       - src/nhl_moneyline_paper_discord.py
       - tests/test_nhl_moneyline_paper_discord.py
+      - tests/test_nhl_evenodd_retirement.py
+      - src/parity_sport_delivery.py
+      - src/parity_prediction_delivery.py
+      - src/parity_individual_results.py
+      - tests/test_parity_sport_delivery.py
+      - tests/test_parity_prediction_delivery.py
       - .github/workflows/nhl-moneyline-paper-routing-tests.yml
   workflow_dispatch:
 permissions:
@@ -21,3 +27,10 @@ jobs:
           python-version: '3.12'
       - name: Offline three-channel and report guardrail tests
         run: python -m unittest discover -s tests -p test_nhl_moneyline_paper_discord.py -v
+      - name: Verify NHL Even Odd Discord retirement and soccer isolation
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m unittest discover -s tests -p test_nhl_evenodd_retirement.py -v
+          python -m unittest discover -s tests -p test_parity_sport_delivery.py -v
+          python -m unittest discover -s tests -p test_parity_prediction_delivery.py -v
