@@ -35,4 +35,13 @@ jobs:
           print("NHL_PRIVATE_ISSUES_READ_ACCESS="+json.dumps({
               "allowed":code==200,"http_code":code,
               "note":"Private issue metadata GET only, no contents disclosed or messages sent"}))
+          for label,path in (("workflow_runs","/actions/runs?per_page=1"),("artifacts","/actions/artifacts?per_page=1")):
+              request=Request("https://api.github.com/repos/stelladeecoder/statrally-even-odd-models"+path,
+                              method="GET",headers={"Accept":"application/vnd.github+json",
+                              "Authorization":"Bearer "+os.environ["TOKEN"]})
+              try:
+                  with urlopen(request,timeout=15) as r: status=r.status
+              except HTTPError as e: status=e.code
+              except URLError: status=0
+              print("NHL_PRIVATE_ACTIONS_READ_ACCESS="+json.dumps({"family":label,"allowed":status==200,"http_code":status}))
           PY
