@@ -136,7 +136,7 @@ def _tier(row):
     return BANDS[code]
 
 
-def _card(title, description, color, *, footer=None, fields=None):
+def _card(title, description, color, *, footer=None, fields=None, username="StatRally NHL Moneyline"):
     if len(description) > MAX_DESC:
         raise ValueError("Oversize mobile Discord card")
     embed = {"title": title, "description": description, "color": color,
@@ -144,7 +144,7 @@ def _card(title, description, color, *, footer=None, fields=None):
                         "StatRally · NHL Moneyline · [PAPER TRADE] research only · No real orders"}}
     if fields:
         embed["fields"] = fields
-    return {"embeds": [embed], "allowed_mentions": {"parse": []}}
+    return {"username": username, "embeds": [embed], "allowed_mentions": {"parse": []}}
 
 
 def _validate_moneyline_evidence(row, stage):
@@ -283,7 +283,8 @@ def _scorecard(report):
         body.insert(1, f"**Record:** {wins} WIN / {losses} LOSS")
     return _card("📊 NHL MONEYLINE | PAPER SCORECARD",
                  "\n".join(body), BLUE,
-                 footer="StatRally · Prospective paper sample only · 150–250 games for review")
+                 footer="StatRally · Prospective paper sample only · 150–250 games for review",
+                 username="StatRally NHL Results")
 
 
 def render(report, stage, *, now=None):
@@ -300,7 +301,7 @@ def render(report, stage, *, now=None):
         color = BLUE if stage == "watchlist" else TEAL
         if not rows:
             return [_card(title, "No qualified paper trades in this slate.",
-                          color)]
+                          color, username=("StatRally NHL Watchlist" if stage=="watchlist" else "StatRally NHL Picks"))]
         # Match the original compact watchlist / picks design: one grouped
         # mobile card per page rather than a noisy separate post for each game.
         headline = (f"**{len(rows)} UPCOMING GAMES** · NHL"
@@ -324,7 +325,8 @@ def render(report, stage, *, now=None):
         for index, group in enumerate(groups, 1):
             label = f" · {index}/{len(groups)}" if len(groups) > 1 else ""
             description = headline + "\n\n" + "\n\n".join(group)
-            cards.append(_card(title+label, description, color))
+            cards.append(_card(title+label, description, color,
+                               username=("StatRally NHL Watchlist" if stage=="watchlist" else "StatRally NHL Picks")))
         return cards
     # Results: retain the WIN / LOSS per-game cards, then append a scorecard.
     for row in rows:
@@ -333,7 +335,8 @@ def render(report, stage, *, now=None):
         color = (GREEN if won else RED) if outcome else NEUTRAL
         header = ("🟩 WIN" if won else "🟥 LOSS") if outcome else "⏳ PENDING"
         cards.append(_card(f"{header} · 🏒 NHL MONEYLINE [PAPER TRADE]",
-                           _outcome_text(row), color))
+                           _outcome_text(row), color,
+                           username="StatRally NHL Results"))
     cards.append(_scorecard(report))
     return cards
 
