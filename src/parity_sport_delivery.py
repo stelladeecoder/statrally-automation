@@ -121,7 +121,10 @@ def _issue_for(repo,title,*,call):
     return item,True
 
 def send_sport(report,sport,repo,webhook,*,call=github,sender=discord_send):
-    # NHL Even/Odd Discord publishing retired; soccer research remains available.
+    # Soccer Odd/Even delivery retired for BTTS Phase 1; NHL behavior unchanged.
+    if sport=="soccer":
+        return {"sport":"soccer","status":"retired_for_btts","delivered":0,"pages":0}
+    # NHL Even/Odd Discord publishing retired.
     if sport=="hockey":
         return {"sport":"hockey","status":"retired_for_moneyline","delivered":0,"pages":0}
     payloads=pages(report,sport)
@@ -178,7 +181,7 @@ def main():
         try:
             status=send_sport(report,sport,repo,webhook)
             print("PARITY_SPORT_DELIVERY="+json.dumps(status,sort_keys=True))
-            if status["status"] not in ("confirmed","previously_reserved_no_retry","retired_for_moneyline"):
+            if status["status"] not in ("confirmed","previously_reserved_no_retry","retired_for_moneyline","retired_for_btts"):
                 failed.append(sport)
         except Exception as exc:
             failed.append(sport)
