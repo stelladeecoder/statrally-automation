@@ -108,7 +108,7 @@ def records(issue, *, call=api):
             continue
         row = json.loads(body[len(PREFIX):])
         stage = row.get("stage")
-        if stage in ("entry", "close", "settlement"):
+        if stage in ("watchlist", "entry", "close", "settlement"):
             if stage in stages:
                 raise ValueError("Duplicate immutable stage in private issue")
             stages[stage] = row
@@ -122,13 +122,26 @@ def candidates(*, now=None, call=api):
         if not issue.get("title", "").startswith("StatRally NHL Moneyline PAPER | "):
             continue
         stages = records(issue, call=call)
-        if not stages or "entry" not in stages:
+        if not stages:
             continue
-        entry = stages["entry"]
-        if stamp(entry["game_start_utc"]).astimezone(ET).date() != now.astimezone(ET).date():
+        watch = stages.get("watchlist")
+        if watch is not None:
+            if (watch.get("schema_version") != "nhl-kalshi-moneyline-paper-v1"
+                or watch.get("paper_trade") is not True
+                or watch.get("orders_placed") != 0
+                or watch.get("stage") != "watchlist"
+                or watch.get("fixture_only") is not True
+                or watch.get("market_identity_verified") is not True
+                or not TICKER.fullmatch(watch.get("market_ticker", ""))
+                or not watch.get("fixture_source_id")
+                or stamp(watch["observed_utc"]) >= stamp(watch["game_start_utc"])
+                or stamp(watch["observed_utc"]) > now):
+                raise ValueError("Unverified prospective fixture-only watchlist")
+            yield "watchlist", watch, stages
+        entry = stages.get("entry")
+        if entry is None:
             continue
         eligible(entry, now=now)
-        yield "watchlist", entry, stages
         yield "picks", entry, stages
         if "settlement" in stages:
             eligible(entry, stages.get("close"), stages["settlement"], now=now)
@@ -182,7 +195,7 @@ def publish(stage, entry, stages, *, call=api, sender=send):
     elif stage == "picks":
         text += ("**Entry observed (UTC):** " + entry["observed_utc"]
                  + "\\n**Executable ask:** $" + str(entry["ask_dollars"])
-                 + "\\n**Status:** PAPER research only; fee not account-verified")
+                 + "\\n**Status:** PAPER taker-crossing entry; scheduled fee $" + str(entry.get("scheduled_paper_fee_dollars", "unavailable")) + " (no account fill)")
     else:
         result = stages["settlement"]
         text += ("**Closing observed (UTC):** " + stages["close"]["observed_utc"]
