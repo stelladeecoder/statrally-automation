@@ -23,7 +23,8 @@ def official_slate(day, *, opener=urlopen):
                       headers={"Accept": "application/json"})
     with opener(request, timeout=20) as response:
         payload = json.load(response)
-    # Reject a stale NHL API season rather than treating an anomalous empty\n    # response as a verified zero-game slate.\n    season_start = payload.get("regularSeasonStartDate")\n    season_end = payload.get("regularSeasonEndDate")\n    if not season_start or not season_end or not (season_start <= day.isoformat() <= season_end):\n        raise ValueError("NHL schedule response does not cover requested season")\n    if not isinstance(payload.get("gameWeek"), list):
+    # Reject stale NHL API seasons rather than accepting false off-days.
+    season_start = payload.get("regularSeasonStartDate")\n    season_end = payload.get("regularSeasonEndDate")\n    if not season_start or not season_end or not (season_start <= day.isoformat() <= season_end):\n        raise ValueError("NHL schedule response does not cover requested season")\n    if not isinstance(payload.get("gameWeek"), list):
         raise ValueError("Missing authoritative NHL gameWeek")
     matches = [d for d in payload["gameWeek"] if d.get("date") == day.isoformat()]
     if len(matches) != 1 or not isinstance(matches[0].get("games"), list):
