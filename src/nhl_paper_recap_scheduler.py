@@ -19,31 +19,42 @@ BASE = "https://api-web.nhle.com/v1/schedule/"
 
 
 def official_slate(day, *, opener=urlopen):
-    """Fetch 2026-27 games by explicit season and ET date; never infer off-days."""
-    from urllib.parse import quote
+    """Require one exact ET date in the NHL weekly schedule, failing closed."""
     if not ("2026-09-18" <= day.isoformat() <= "2027-04-11"):
         raise ValueError("Requested date outside validated 2026-27 season bounds")
-    expression = 'season=20262027 and gameDate="' + day.isoformat() + '"'
-    url = ("https://api.nhle.com/stats/rest/en/game?cayenneExp="
-           + quote(expression, safe=""))
-    with opener(Request(url, method="GET", headers={"Accept":"application/json"}),
+    url = BASE + day.isoformat()
+    with opener(Request(url, method="GET",
+                        headers={"Accept": "application/json",
+                                 "User-Agent": "statrally-automation/1.0"}),
                 timeout=20) as response:
         payload = json.load(response)
-    if not isinstance(payload.get("data"), list):
-        raise ValueError("Missing NHL Stats REST game data")
+    if not isinstance(payload, dict) or not isinstance(payload.get("gameWeek"), list):
+        raise ValueError("Missing NHL schedule gameWeek")
+    matches = [item for item in payload["gameWeek"]
+               if isinstance(item, dict) and item.get("date") == day.isoformat()]
+    if len(matches) != 1:
+        raise ValueError("Missing or duplicate target date in NHL gameWeek")
+    slate = matches[0]
+    games = slate.get("games")
+    if not isinstance(games, list):
+        raise ValueError("Missing NHL schedule games")
+    if "numberOfGames" in slate:
+        count = slate["numberOfGames"]
+        if type(count) is not int or count != len(games):
+            raise ValueError("NHL schedule numberOfGames mismatch")
     ids = set()
-    for game in payload["data"]:
-        if str(game.get("season")) != "20262027":
-            raise ValueError("NHL Stats season mismatch")
+    for game in games:
+        if not isinstance(game, dict) or str(game.get("season")) != "20262027":
+            raise ValueError("NHL schedule season mismatch")
         if str(game.get("gameDate", ""))[:10] != day.isoformat():
-            raise ValueError("NHL Stats game date mismatch")
+            raise ValueError("NHL schedule game date mismatch")
         game_id = game.get("id")
-        if game_id is None or str(game_id) in ids:
-            raise ValueError("Missing or duplicate NHL game ID")
-        ids.add(str(game_id))
-    if payload.get("total") is None or int(payload["total"]) != len(ids):
-        raise ValueError("NHL Stats pagination or total mismatch")
-    return ids
+        if type(game_id) is not int or game_id in ids:
+            raise ValueError("Missing, noninteger or duplicate NHL game ID")
+        if not isinstance(game.get("awayTeam"), dict) or not isinstance(game.get("homeTeam"), dict):
+            raise ValueError("Missing NHL awayTeam/homeTeam")
+        ids.add(game_id)
+    return {str(game_id) for game_id in ids}
 
 
 def ledger(*, call=api):
