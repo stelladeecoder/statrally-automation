@@ -13,18 +13,22 @@ class Response:
 
 
 class OfficialNhlScheduleTests(unittest.TestCase):
-    def test_stale_season_is_not_an_off_day(self):
-        payload={"regularSeasonStartDate":"2025-10-07",
-                 "regularSeasonEndDate":"2026-04-17",
-                 "gameWeek":[{"date":"2026-11-16","games":[]}]}
-        with self.assertRaisesRegex(ValueError,"does not cover requested season"):
+    def test_wrong_season_rejected(self):
+        payload={"total":1,"data":[{"id":1,"season":20252026,"gameDate":"2026-11-16"}]}
+        with self.assertRaisesRegex(ValueError,"season mismatch"):
             official_slate(date(2026,11,16),opener=lambda req,timeout:Response(payload))
     def test_valid_off_day_is_empty(self):
-        payload={"regularSeasonStartDate":"2026-10-01",
-                 "regularSeasonEndDate":"2027-04-01",
-                 "gameWeek":[{"date":"2026-11-16","games":[]}]}
         self.assertEqual(official_slate(date(2026,11,16),
-            opener=lambda req,timeout:Response(payload)),set())
+            opener=lambda req,timeout:Response({"total":0,"data":[]})),set())
+    def test_complete_two_game_slate(self):
+        payload={"total":2,"data":[{"id":2026020331,"season":20262027,"gameDate":"2026-11-16"},
+                                   {"id":2026020332,"season":20262027,"gameDate":"2026-11-16"}]}
+        self.assertEqual(len(official_slate(date(2026,11,16),
+            opener=lambda req,timeout:Response(payload))),2)
+    def test_pagination_fail_closed(self):
+        payload={"total":2,"data":[{"id":1,"season":20262027,"gameDate":"2026-11-16"}]}
+        with self.assertRaisesRegex(ValueError,"pagination"):
+            official_slate(date(2026,11,16),opener=lambda req,timeout:Response(payload))
 
 
 if __name__=="__main__":
