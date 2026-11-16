@@ -36,7 +36,7 @@ The model estimates each team's pregame win probability. A separate market-data 
 | **`#nhl-results`** | Independently verified settlements, entry versus pre-puck closing ask, quote-based CLV proxy, post-fee hypothetical P&L and cumulative paper scorecard | **Green WIN**, **red LOSS**, plus running-summary card |
 | **`#admin`** | Private operational health: scheduler activity, delivery receipts, entry/close snapshot hits and misses, Kalshi API issues and low-liquidity skips | Daily health report |
 
-The Discord webhook connections have been verified. **The new Moneyline reports are not yet on an automated daily publishing schedule**: the first genuine entry-to-closing-to-settlement paper cycle must pass validation before that schedule is activated.
+The Discord delivery destinations have previously passed connection tests. **The new Moneyline reports are not yet on an automated daily publishing schedule**: the first genuine entry-to-closing-to-settlement paper cycle must pass validation before that schedule is activated.
 
 ### What the numbers mean
 
@@ -51,7 +51,7 @@ For research, qualifying paper signals are assessed against **+2.5%, +3.5%, and 
 
 ## Current launch status
 
-- **Verified:** Current-season NHL pregame model inference, team-to-Kalshi contract matching, real read-only orderbook diagnostics, and all three dedicated NHL Discord webhook destinations.
+- **Verified:** Current-season NHL pregame model inference, team-to-Kalshi contract matching, real read-only orderbook diagnostics, and prior NHL Discord delivery connection tests.
 - **Implemented:** A private five-minute prospective snapshot poller and health-receipt workflow. GitHub Actions timing is best-effort, and missed snapshot windows are not backfilled.
 - **In validation:** A complete real-game sequence with a 45–60-minute pregame quote, a closing quote 0–5 minutes before puck drop, independently confirmed settlement, and post-fee paper P&L.
 - **Not enabled:** Automated daily Moneyline paper-signal publishing or any live order execution.
@@ -64,21 +64,13 @@ StatRally also contains historical soccer fixture-discovery and model-research w
 
 Configured sports or competitions do not guarantee a game, a qualified prediction, or an available market on every date.
 
-## NFL shadow artifact handoff and webhook routing
+## NFL shadow artifact handoff and approved delivery
 
-The NFL pregame integration is **shadow-only** and independent of the NHL Moneyline PAPER lifecycle. The public automation side reads approved private-repository artifacts through the cross-repo read credential `STATRALLY_MODELS_READ_TOKEN`, supplied **only through the GitHub Actions secret/environment**. Never print the token or copy private model inputs into public logs.
+The NFL pregame integration is **shadow-only** and independent of the NHL Moneyline PAPER lifecycle. The public automation workflow consumes approved artifacts from the private research repository using access controlled outside this public documentation. Private credentials, environment configuration, delivery endpoints, and routing details are not published here.
 
-**Cryptographic approval binding:** Accept an NFL approval only when it authorizes **exactly one output type** and binds to the **exact SHA-256 hash of the payload being published**. Recompute the digest from the actual candidate payload bytes and compare it to the approved hash before delivery. Reject missing, ambiguous, multi-type, stale or hash-mismatched approvals; never reinterpret an approval for a different output type or payload. This is the required fail-closed publishing contract, not a claim that any specific live delivery has been verified.
+**Cryptographic approval binding:** An approval must authorize **exactly one output type** and bind to the **exact SHA-256 hash of the payload being published**. Recompute the digest from the actual candidate payload bytes and compare it to the approved hash before delivery. Reject missing, ambiguous, multi-type, stale, or hash-mismatched approvals; never reinterpret an approval for another output type or payload. This is a fail-closed publishing requirement, not proof of any live delivery.
 
-The designated NFL Discord webhook environment variable names are:
-
-| NFL destination | GitHub Actions secret/environment variable |
-|---|---|
-| Watchlist | `STATRALLY_NFL_WATCHLIST_WEBHOOK` |
-| Picks | `STATRALLY_NFL_PICKS_WEBHOOK` |
-| Results | `STATRALLY_NFL_RESULTS_WEBHOOK` |
-
-These names document intended routing; successful delivery must be established independently from actual HTTP receipts. Do not publish NFL messages if required approval, payload hash, artifact provenance or destination binding is missing. NFL shadow reporting must not modify the NHL Moneyline poller, NHL WATCHLIST/PICKS/RESULTS routes, existing Even/Odd reporting, or the locked multi-sport recap migration gate. No real-money orders or automatic activation are permitted.
+**Public delivery structure:** Approved NFL shadow outputs are organized into watchlist, picks, and results reporting. Delivery requires a valid approval, verified artifact provenance, and a privately configured destination. A missing or invalid requirement means **no publish**. NFL shadow reporting must not alter NHL Moneyline polling, NHL reporting, existing Even/Odd reporting, or the locked multi-sport recap migration gate. No real-money orders or automatic activation are permitted.
 
 ## 📱 Mobile experience coming soon
 
