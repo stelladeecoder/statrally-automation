@@ -85,7 +85,9 @@ def eligible(entry, close=None, settlement=None, *, now=None):
                 and stamp(settlement["observed_utc"]) <= now
                 and settlement.get("settlement_verified") is True
                 and settlement.get("settlement_source")
-                and settlement.get("account_fee_verified") is True
+                and settlement.get("account_fill_fee", "missing") is None
+                and settlement.get("scheduled_paper_fee_dollars") is not None
+                and settlement.get("settlement_fee_dollars") == "0.00"
                 and settlement.get("post_fee_paper_pnl_dollars") is not None):
             raise ValueError("No verified official settlement and effective fee")
     return True
