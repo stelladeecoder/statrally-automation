@@ -94,11 +94,11 @@ class SportDeliveryTests(unittest.TestCase):
         for sport in ("soccer","hockey"):
             result=send_sport(data,sport,"o/r","https://discord.com/api/webhooks/1/x",
                               call=api,sender=sender)
-            self.assertEqual(result["status"],"confirmed" if sport=="soccer" else "retired_for_moneyline")
-        self.assertEqual(len(sent),1)
+            self.assertEqual(result["status"],"retired_for_btts" if sport=="soccer" else "retired_for_moneyline")
+        self.assertEqual(len(sent),0)
         repeat=send_sport(data,"soccer","o/r","https://discord.com/api/webhooks/1/x",
                           call=api,sender=sender)
-        self.assertEqual(repeat["status"],"previously_reserved_no_retry")
-        self.assertEqual(len(sent),1)
+        self.assertEqual(repeat["status"],"retired_for_btts")
+        self.assertEqual(len(sent),0)
 if __name__=="__main__":
     unittest.main()

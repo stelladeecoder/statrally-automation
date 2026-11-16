@@ -1,0 +1,42 @@
+name: NHL recurring verified PAPER ledger Discord delivery
+on:
+  schedule:
+    - cron: "*/5 18-23 * * *"
+    - cron: "*/5 0-9 * * *"
+    - cron: "15 12 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: nhl-moneyline-ledger-discord-delivery
+  cancel-in-progress: false
+jobs:
+  deliver:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Deliver only verified private PAPER ledger stages
+        env:
+          STATRALLY_NHL_PAPER_ONLY: "true"
+          STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
+          STATRALLY_NHL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NHL_PICKS_WEBHOOK }}
+          STATRALLY_NHL_RESULTS_WEBHOOK: ${{ secrets.STATRALLY_NHL_RESULTS_WEBHOOK }}
+        run: python src/nhl_moneyline_ledger_delivery.py
+      - name: Publish complete NHL ET slate recaps only
+        if: github.event.schedule == '15 12 * * *' || github.event_name == 'workflow_dispatch'
+        env:
+          STATRALLY_NHL_PAPER_ONLY: "true"
+          STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          STATRALLY_NHL_DAILY_RECAP_WEBHOOK: ${{ secrets.STATRALLY_DAILY_RESULTS_DISCORD_WEBHOOK }}
+          STATRALLY_NHL_WEEKLY_RECAP_WEBHOOK: ${{ secrets.STATRALLY_WEEKLY_RECAP_DISCORD_WEBHOOK }}
+          STATRALLY_NHL_MONTHLY_RECAP_WEBHOOK: ${{ secrets.STATRALLY_MONTHLY_RECAP_DISCORD_WEBHOOK }}
+        run: python src/nhl_paper_recap_scheduler.py

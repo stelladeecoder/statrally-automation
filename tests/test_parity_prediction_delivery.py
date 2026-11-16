@@ -91,5 +91,5 @@ class EvenOddPicksTests(unittest.TestCase):
         self.assertEqual(len(posts),0)
     def test_missing_channel_not_falsely_success(self):
         r=publish_one(report(),"soccer","o/r","",now=NOW)
-        self.assertEqual(r["status"],"dedicated_webhook_missing")
+        self.assertEqual(r["status"],"retired_for_btts")
 if __name__=="__main__":unittest.main()
