@@ -46,7 +46,19 @@ def official_slate(day, *, opener=urlopen):
     for game in games:
         if not isinstance(game, dict) or str(game.get("season")) != "20262027":
             raise ValueError("NHL schedule season mismatch")
-        if str(game.get("gameDate", ""))[:10] != day.isoformat():
+        start = game.get("startTimeUTC")
+        if not isinstance(start, str):
+            raise ValueError("Missing NHL startTimeUTC")
+        try:
+            parsed = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+                raise ValueError("NHL startTimeUTC must be UTC")
+            game_et_day = parsed.astimezone(ET).date()
+        except (ValueError, TypeError, OverflowError) as exc:
+            raise ValueError("Invalid NHL startTimeUTC") from exc
+        if game_et_day != day:
+            raise ValueError("NHL startTimeUTC Eastern date mismatch")
+        if game.get("gameDate") is not None and str(game["gameDate"])[:10] != day.isoformat():
             raise ValueError("NHL schedule game date mismatch")
         game_id = game.get("id")
         if type(game_id) is not int or game_id in ids:
