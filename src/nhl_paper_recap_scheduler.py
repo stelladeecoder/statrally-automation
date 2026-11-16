@@ -20,29 +20,26 @@ BASE = "https://api-web.nhle.com/v1/schedule/"
 
 def official_slate(day, *, opener=urlopen):
     """Fetch 2026-27 games by explicit season and ET date; never infer off-days."""
-    from urllib.parse import quote
     if not ("2026-09-18" <= day.isoformat() <= "2027-04-11"):
         raise ValueError("Requested date outside validated 2026-27 season bounds")
-    expression = 'season=20262027 and gameDate="' + day.isoformat() + '"'
-    url = ("https://api.nhle.com/stats/rest/en/game?cayenneExp="
-           + quote(expression, safe=""))
-    with opener(Request(url, method="GET", headers={"Accept":"application/json"}),
+    url = BASE + day.isoformat()
+    with opener(Request(url, method="GET",
+                       headers={"Accept": "application/json",
+                                "User-Agent": "statrally-automation/1.0"}),
                 timeout=20) as response:
         payload = json.load(response)
-    if not isinstance(payload.get("data"), list):
-        raise ValueError("Missing NHL Stats REST game data")
+    if not isinstance(payload.get("games"), list):
+        raise ValueError("Missing NHL schedule game data")
     ids = set()
-    for game in payload["data"]:
+    for game in payload["games"]:
         if str(game.get("season")) != "20262027":
-            raise ValueError("NHL Stats season mismatch")
+            raise ValueError("NHL schedule season mismatch")
         if str(game.get("gameDate", ""))[:10] != day.isoformat():
-            raise ValueError("NHL Stats game date mismatch")
+            raise ValueError("NHL schedule game date mismatch")
         game_id = game.get("id")
         if game_id is None or str(game_id) in ids:
             raise ValueError("Missing or duplicate NHL game ID")
         ids.add(str(game_id))
-    if payload.get("total") is None or int(payload["total"]) != len(ids):
-        raise ValueError("NHL Stats pagination or total mismatch")
     return ids
 
 
