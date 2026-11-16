@@ -64,6 +64,22 @@ StatRally also contains historical soccer fixture-discovery and model-research w
 
 Configured sports or competitions do not guarantee a game, a qualified prediction, or an available market on every date.
 
+## NFL shadow artifact handoff and webhook routing
+
+The NFL pregame integration is **shadow-only** and independent of the NHL Moneyline PAPER lifecycle. The public automation side reads approved private-repository artifacts through the cross-repo read credential `STATRALLY_MODELS_READ_TOKEN`, supplied **only through the GitHub Actions secret/environment**. Never print the token or copy private model inputs into public logs.
+
+**Cryptographic approval binding:** Accept an NFL approval only when it authorizes **exactly one output type** and binds to the **exact SHA-256 hash of the payload being published**. Recompute the digest from the actual candidate payload bytes and compare it to the approved hash before delivery. Reject missing, ambiguous, multi-type, stale or hash-mismatched approvals; never reinterpret an approval for a different output type or payload. This is the required fail-closed publishing contract, not a claim that any specific live delivery has been verified.
+
+The designated NFL Discord webhook environment variable names are:
+
+| NFL destination | GitHub Actions secret/environment variable |
+|---|---|
+| Watchlist | `STATRALLY_NFL_WATCHLIST_WEBHOOK` |
+| Picks | `STATRALLY_NFL_PICKS_WEBHOOK` |
+| Results | `STATRALLY_NFL_RESULTS_WEBHOOK` |
+
+These names document intended routing; successful delivery must be established independently from actual HTTP receipts. Do not publish NFL messages if required approval, payload hash, artifact provenance or destination binding is missing. NFL shadow reporting must not modify the NHL Moneyline poller, NHL WATCHLIST/PICKS/RESULTS routes, existing Even/Odd reporting, or the locked multi-sport recap migration gate. No real-money orders or automatic activation are permitted.
+
 ## 📱 Mobile experience coming soon
 
 A mobile-friendly dashboard is under development. Public availability will be announced after verification. There is no active public registration or invitation link listed here.
