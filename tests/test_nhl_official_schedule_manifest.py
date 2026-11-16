@@ -16,7 +16,8 @@ class Response:
 
 def game(identifier, away="MTL", home="NYR", season=20262027):
     return {"id": identifier, "season": season, "gameDate": "2026-11-16",
-            "awayTeam": {"abbrev": away}, "homeTeam": {"abbrev": home}}
+            "awayTeam": {"abbrev": away}, "homeTeam": {"abbrev": home},
+            "startTimeUTC": "2026-11-17T00:30:00Z"}
 
 def week(games, *, date_string="2026-11-16", count=None):
     day = {"date": date_string, "games": games}
@@ -31,6 +32,31 @@ class OfficialNhlScheduleTests(unittest.TestCase):
     def test_two_game_slate(self):
         payload = week([game(2026020331), game(2026020332, "VAN", "UTA")], count=2)
         self.assertEqual(read(payload), {"2026020331", "2026020332"})
+
+    def test_real_schedule_shape_utc_next_day(self):
+        first = game(2026020331, "MTL", "NYR")
+        second = game(2026020332, "VAN", "UTA")
+        first.pop("gameDate")
+        second.pop("gameDate")
+        second["startTimeUTC"] = "2026-11-17T02:30:00Z"
+        self.assertEqual(read(week([first, second], count=2)),
+                         {"2026020331", "2026020332"})
+
+    def test_utc_to_et_date_mismatch_fails_closed(self):
+        bad = game(1)
+        bad.pop("gameDate")
+        bad["startTimeUTC"] = "2026-11-17T06:00:00Z"
+        with self.assertRaisesRegex(ValueError, "Eastern date mismatch"):
+            read(week([bad], count=1))
+
+    def test_missing_or_invalid_start_time_fails_closed(self):
+        bad = game(1)
+        bad.pop("startTimeUTC")
+        with self.assertRaisesRegex(ValueError, "Missing NHL startTimeUTC"):
+            read(week([bad], count=1))
+        bad["startTimeUTC"] = "not-a-date"
+        with self.assertRaisesRegex(ValueError, "Invalid NHL startTimeUTC"):
+            read(week([bad], count=1))
 
     def test_legitimate_off_day(self):
         self.assertEqual(read(week([], count=0)), set())
