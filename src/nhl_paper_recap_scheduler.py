@@ -19,26 +19,30 @@ BASE = "https://api-web.nhle.com/v1/schedule/"
 
 
 def official_slate(day, *, opener=urlopen):
-    request = Request(BASE + day.isoformat(), method="GET",
-                      headers={"Accept": "application/json"})
-    with opener(request, timeout=20) as response:
+    """Fetch 2026-27 games by explicit season and ET date; never infer off-days."""
+    from urllib.parse import quote
+    if not ("2026-09-18" <= day.isoformat() <= "2027-04-11"):
+        raise ValueError("Requested date outside validated 2026-27 season bounds")
+    expression = 'season=20262027 and gameDate="' + day.isoformat() + '"'
+    url = ("https://api.nhle.com/stats/rest/en/game?cayenneExp="
+           + quote(expression, safe=""))
+    with opener(Request(url, method="GET", headers={"Accept":"application/json"}),
+                timeout=20) as response:
         payload = json.load(response)
-    # Reject stale NHL API seasons rather than accepting false off-days.
-    season_start = payload.get("regularSeasonStartDate")\n    season_end = payload.get("regularSeasonEndDate")\n    if not season_start or not season_end or not (season_start <= day.isoformat() <= season_end):\n        raise ValueError("NHL schedule response does not cover requested season")\n    if not isinstance(payload.get("gameWeek"), list):
-        raise ValueError("Missing authoritative NHL gameWeek")
-    matches = [d for d in payload["gameWeek"] if d.get("date") == day.isoformat()]
-    if len(matches) != 1 or not isinstance(matches[0].get("games"), list):
-        raise ValueError("NHL date missing or ambiguous")
-    games = matches[0]["games"]
+    if not isinstance(payload.get("data"), list):
+        raise ValueError("Missing NHL Stats REST game data")
     ids = set()
-    for game in games:
-        if game.get("id") is None or not game.get("startTimeUTC"):
-            raise ValueError("Incomplete NHL schedule fixture")
-        if stamp(game["startTimeUTC"]).astimezone(ET).date() != day:
-            raise ValueError("NHL schedule date disagrees with ET puck drop")
-        if str(game["id"]) in ids:
-            raise ValueError("Duplicate NHL fixture ID")
-        ids.add(str(game["id"]))
+    for game in payload["data"]:
+        if str(game.get("season")) != "20262027":
+            raise ValueError("NHL Stats season mismatch")
+        if str(game.get("gameDate", ""))[:10] != day.isoformat():
+            raise ValueError("NHL Stats game date mismatch")
+        game_id = game.get("id")
+        if game_id is None or str(game_id) in ids:
+            raise ValueError("Missing or duplicate NHL game ID")
+        ids.add(str(game_id))
+    if payload.get("total") is None or int(payload["total"]) != len(ids):
+        raise ValueError("NHL Stats pagination or total mismatch")
     return ids
 
 
