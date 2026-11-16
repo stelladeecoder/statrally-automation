@@ -104,7 +104,7 @@ def completed(day, *, schedule=official_slate, source=ledger):
 def publish_recap(kind, key, data, *, call=api, sender=send):
     if kind not in ("daily", "weekly", "monthly"):
         raise ValueError("Unknown recap")
-    reservation = "recap | " + kind + " | " + key
+    reservation = "sport=nhl | " + key + " | " + kind + "_recap"
     issue = reserve(reservation, call=call)
     if issue is None:
         return {"key": reservation, "status": "already_reserved"}
