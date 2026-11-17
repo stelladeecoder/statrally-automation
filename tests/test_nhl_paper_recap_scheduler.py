@@ -1,8 +1,9 @@
 """Official slate completeness: no off-day or partial-slate publication."""
 import unittest
+from unittest.mock import patch
 from datetime import date
 from decimal import Decimal
-from nhl_paper_recap_scheduler import completed
+from nhl_paper_recap_scheduler import completed, publish_recap
 
 
 def contract(game, ticker, pnl):
@@ -16,6 +17,34 @@ def contract(game, ticker, pnl):
 
 
 class CompleteSlateTests(unittest.TestCase):
+    def test_synthetic_recap_formatter_and_mock_discord_receipt(self):
+        sent=[]
+        api_calls=[]
+        def api(method, repo, path, data=None):
+            api_calls.append((method,path,data))
+            if method=="GET":
+                return []
+            if method=="POST" and path=="/issues":
+                return {"number":193}
+            return {"id":123}
+        def sender(webhook,payload):
+            sent.append((webhook,payload))
+            return "123456789012345678"
+        data={"scheduled_slate_games":2,"settled_slate_games":2,
+              "settled_contracts":4,"post_fee_paper_pnl_dollars":"-0.20"}
+        with patch.dict("os.environ",{"STATRALLY_NHL_DAILY_RECAP_WEBHOOK":
+                       "https://discord.com/api/webhooks/TEST_ONLY"},clear=False):
+            result=publish_recap("daily","2026-11-16",data,call=api,sender=sender)
+        self.assertEqual(result["status"],"CONFIRMED")
+        self.assertEqual(len(sent),1)
+        embed=sent[0][1]["embeds"][0]
+        self.assertIn("NHL PAPER",embed["title"])
+        self.assertIn("Post-fee PAPER P&L",embed["description"])
+        self.assertIn("-0.20",embed["description"])
+        self.assertNotIn("Even/Odd",str(embed))
+        self.assertTrue(any("123456789012345678" in str(row) for row in api_calls))
+        # Mock sender only: never calls a real Discord webhook or mutates production ledger.
+
     def test_off_day_no_recap(self):
         self.assertIsNone(completed(date(2026,11,16),schedule=lambda d:set(),
                                     source=lambda:{}))
