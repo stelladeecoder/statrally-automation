@@ -8,6 +8,7 @@ import os
 from decimal import Decimal, InvalidOperation
 import re
 from datetime import datetime, timezone
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -188,19 +189,27 @@ def reserve(key, *, call=api):
 
 
 def send(webhook, payload, *, opener=urlopen):
-    if not webhook.startswith("https://discord.com/api/webhooks/"):
+    if not re.fullmatch(
+        r"https://(?:discord.com|discordapp.com)/api/webhooks/[0-9]+/[^/]+",
+        webhook,
+    ):
         raise ValueError("Invalid Discord webhook URL")
     request = Request(webhook + ("&" if "?" in webhook else "?") + "wait=true",
                       data=json.dumps(payload).encode(), method="POST",
-                      headers={"Content-Type": "application/json"})
-    with opener(request, timeout=20) as response:
-        if response.status not in (200, 204):
-            raise ValueError("Discord did not acknowledge delivery")
-        body = response.read()
-        obj = json.loads(body) if body else {}
-        if not str(obj.get("id", "")).isdigit():
-            raise ValueError("No Discord message ID; ambiguous delivery")
-        return str(obj["id"])
+                      headers={"Content-Type": "application/json",
+                               "User-Agent": "StatRally-Monitor/1"})
+    try:
+        with opener(request, timeout=20) as response:
+            status = response.status
+            body = response.read()
+    except HTTPError as error:
+        raise ValueError(f"Discord rejected webhook request (HTTP {error.code})") from None
+    obj = json.loads(body) if body else {}
+    message_id = str(obj.get("id", ""))
+    if status != 200 or not re.fullmatch(r"[0-9]{15,22}", message_id):
+        raise ValueError(f"Discord delivery not confirmed: HTTP {status}, valid ID={bool(message_id)}")
+    print(f"Discord delivery: HTTP {status}; Discord message ID {message_id}")
+    return message_id
 
 
 def publish(stage, entry, stages, *, call=api, sender=send):

@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: nhl-morning-paper-watchlist
   cancel-in-progress: false
