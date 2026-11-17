@@ -1,0 +1,80 @@
+name: NFL ATD paper Discord delivery
+on:
+  schedule:
+    - cron: '*/5 16-23 * * 0,1,4,5,6'
+    - cron: '*/5 0-4 * * 0,1,2,5,6'
+    - cron: '27 12 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [picks, recaps]
+        default: picks
+  pull_request:
+    paths:
+      - '.github/workflows/nfl-atd-paper-discord.yml'
+      - 'src/nfl_atd_paper_discord.py'
+      - 'tests/test_nfl_atd_paper_discord.py'
+permissions:
+  contents: read
+concurrency:
+  group: nfl-atd-paper-discord-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      STATRALLY_NFL_PAPER_ONLY: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p test_nfl_atd_paper_discord.py -v
+      - name: Download successful private main artifacts only
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          TRIGGER: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ inputs.mode }}
+        run: |
+          repo=stelladeecoder/statrally-even-odd-models
+          mode=picks
+          since=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          if [[ "$TRIGGER" == '27 12 * * *' || "$INPUT_MODE" == recaps ]]; then
+            mode=recaps
+            since=$(date -u -d '39 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          fi
+          echo "NFL_MODE=$mode" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/nfl-atd"
+          download() {
+            local workflow=$1 prefix=$2 after=$3 ids run_id name
+            ids=$(gh run list --repo "$repo" --workflow "$workflow" --branch main --status success --created "$after" --limit 1000 --json databaseId,event --jq '.[] | select(.event == "schedule" or .event == "workflow_dispatch") | .databaseId')
+            for run_id in $ids; do
+              name="$prefix-$run_id"
+              if grep -Fxq "$name" "$RUNNER_TEMP/nfl-atd-artifact-names"; then
+                gh run download "$run_id" --repo "$repo" --name "$name" --dir "$RUNNER_TEMP/nfl-atd/$name"
+              fi
+            done
+          }
+          gh api --paginate "repos/$repo/actions/artifacts?per_page=100" --jq '.artifacts[] | select(.expired == false) | .name' > "$RUNNER_TEMP/nfl-atd-artifact-names"
+          download nfl-atd-t90-shadow.yml nfl-atd-shadow ">$since"
+          if [[ "$mode" == recaps ]]; then
+            # Split queries to stay below the Actions API search result cap.
+            for offset in 0 7 14 21 28 35; do
+              start=$(date -u -d "$((offset+7)) days ago" +%Y-%m-%d)
+              end=$(date -u -d "$offset days ago" +%Y-%m-%d)
+              download nfl-atd-scheduled-settlement.yml nfl-atd-settle "$start..$end"
+            done
+          fi
+      - name: Deliver verified NFL paper receipts
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          STATRALLY_NFL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NFL_PICKS_WEBHOOK }}
+          STATRALLY_NFL_RESULTS_WEBHOOK: ${{ secrets.STATRALLY_NFL_RESULTS_WEBHOOK }}
+        run: python src/nfl_atd_paper_discord.py "$NFL_MODE" "$RUNNER_TEMP/nfl-atd"
