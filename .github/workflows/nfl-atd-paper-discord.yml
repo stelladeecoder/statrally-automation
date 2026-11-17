@@ -56,7 +56,7 @@ jobs:
             ids=$(gh run list --repo "$repo" --workflow "$workflow" --branch main --status success --created "$after" --limit 1000 --json databaseId,event --jq '.[] | select(.event == "schedule" or .event == "workflow_dispatch") | .databaseId')
             for run_id in $ids; do
               name="$prefix-$run_id"
-              if grep -Fxq "$name" "$RUNNER_TEMP/nfl-atd-artifact-names"; then
+              if [[ ! -d "$RUNNER_TEMP/nfl-atd/$name" ]] && grep -Fxq "$name" "$RUNNER_TEMP/nfl-atd-artifact-names"; then
                 gh run download "$run_id" --repo "$repo" --name "$name" --dir "$RUNNER_TEMP/nfl-atd/$name"
               fi
             done
