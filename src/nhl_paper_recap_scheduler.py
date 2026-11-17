@@ -1,8 +1,4 @@
-"""Fail-closed NHL ET slate manifest and PAPER recap publishing.
-
-Official NHL schedule defines every game; two verified team-contract settlements
-are required per game. An absent ledger row never counts as a settled game.
-"""
+"""Preview verified NHL paper trade summaries for each official slate."""
 import json
 import os
 from collections import defaultdict
@@ -11,7 +7,7 @@ from decimal import Decimal
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 from nhl_moneyline_ledger_delivery import (
-    PRIVATE, PUBLIC, api, pages, records, stamp, reserve, send, RECEIPT
+    PRIVATE, PUBLIC, api, pages, records, stamp, reserve, send, eligible, RECEIPT
 )
 
 ET = ZoneInfo("America/New_York")
@@ -90,38 +86,57 @@ def completed(day, *, schedule=official_slate, source=ledger):
     if not scheduled:
         return None
     data = source()
-    if any(d == day and fixture not in scheduled for (d, fixture) in data):
-        raise ValueError("Unexpected ledger fixture on official slate")
-    pnl = Decimal("0")
     tickers = set()
+    games = set()
+    dates = set()
+    placed = pending = wins = losses = 0
+    pnl = cost = clv = Decimal("0")
     for fixture in scheduled:
-        contracts = data.get((day, fixture), [])
-        if len(contracts) != 2:
-            return None
-        for stages in contracts:
-            w = stages["watchlist"]
-            ticker = w["market_ticker"]
-            if ticker in tickers:
-                raise ValueError("Duplicate slate ticker")
+        for stages in data.get((day, fixture), []):
+            entry = stages.get("entry")
+            if not entry or entry.get("signal") != "BUY_YES":
+                continue
+            eligible(entry)
+            ticker = entry["market_ticker"]
+            if ticker in tickers or entry["fixture_id"] != fixture:
+                raise ValueError("Duplicate or mismatched qualified paper entry")
             tickers.add(ticker)
-            if not all(k in stages for k in ("entry", "close", "settlement")):
-                return None
-            e, c, s = (stages[k] for k in ("entry", "close", "settlement"))
-            if not all(row.get("fixture_id") == fixture and row.get("market_ticker") == ticker
-                       for row in (e, c, s)):
-                raise ValueError("Contract lifecycle mismatch")
-            if (s.get("settlement_verified") is not True
-                or s.get("paper_only") is not True
-                or s.get("orders_placed") != 0
-                or s.get("account_fill_fee", "missing") is not None
-                or s.get("scheduled_paper_fee_dollars") is None
-                or s.get("post_fee_paper_pnl_dollars") is None):
-                return None
-            pnl += Decimal(str(s["post_fee_paper_pnl_dollars"]))
+            placed += 1
+            settlement = stages.get("settlement")
+            if settlement is None:
+                pending += 1
+                continue
+            close = stages.get("close")
+            eligible(entry, close, settlement)
+            result = settlement.get("winning_team")
+            if (settlement.get("paper_only") is not True
+                or settlement.get("orders_placed") != 0
+                or settlement.get("paper_contracts") != 1
+                or result not in ("yes", "no")):
+                raise ValueError("Invalid paper settlement")
+            entry_price = Decimal(str(entry["ask_dollars"]))
+            close_price = Decimal(str(close["ask_dollars"]))
+            fee = Decimal(str(entry["scheduled_paper_fee_dollars"]))
+            net = Decimal(str(settlement["post_fee_paper_pnl_dollars"]))
+            settled = stamp(settlement["official_settled_at_utc"])
+            if (not stamp(entry["game_start_utc"]) < settled <= stamp(settlement["observed_utc"])
+                or not 0 < close_price < 1
+                or fee != Decimal(str(settlement["scheduled_paper_fee_dollars"]))
+                or net != (int(result == "yes") - entry_price - fee).quantize(Decimal("0.01"))):
+                raise ValueError("Inconsistent settlement evidence")
+            dates.add(settled.astimezone(ZoneInfo("America/Chicago")).date().isoformat())
+            games.add(fixture)
+            wins += result == "yes"
+            losses += result == "no"
+            pnl += net
+            cost += entry_price + fee
+            clv += close_price - entry_price
     return {"slate_date": day.isoformat(), "scheduled_slate_games": len(scheduled),
-            "settled_slate_games": len(scheduled), "settled_contracts": len(tickers),
-            "post_fee_paper_pnl_dollars": str(pnl.quantize(Decimal("0.01"))),
-            "paper_only": True, "orders_placed": 0}
+            "settled_slate_games": len(games), "settled_contracts": wins + losses,
+            "trades_placed": placed, "wins": wins, "losses": losses, "pending": pending,
+            "settlement_dates": sorted(dates), "settled_cost": str(cost), "clv_sum": str(clv),
+            "post_fee_paper_pnl_dollars": f"{pnl:.2f}", "paper_only": True,
+            "orders_placed": 0}
 
 
 def publish_recap(kind, key, data, *, call=api, sender=send):
@@ -134,11 +149,22 @@ def publish_recap(kind, key, data, *, call=api, sender=send):
     webhook = os.environ[{"daily":"STATRALLY_NHL_DAILY_RECAP_WEBHOOK",
                           "weekly":"STATRALLY_NHL_WEEKLY_RECAP_WEBHOOK",
                           "monthly":"STATRALLY_NHL_MONTHLY_RECAP_WEBHOOK"}[kind]]
+    payout = Decimal(data["post_fee_paper_pnl_dollars"])
+    cost = Decimal(data["settled_cost"])
+    count = data["settled_contracts"]
+    roi = f"{100 * payout / cost:.2f}%" if cost else "N/A"
+    clv = f"{100 * Decimal(data['clv_sum']) / count:+.2f} pp" if count else "N/A"
     payload = {"embeds":[{"title":"StatRally NHL PAPER | "+kind.upper()+" | "+key,
         "description":("**Scheduled games:** "+str(data["scheduled_slate_games"])+
         "\\n**Settled games:** "+str(data["settled_slate_games"])+
         "\\n**Settled contracts:** "+str(data["settled_contracts"])+
         "\\n**Post-fee PAPER P&L:** $"+data["post_fee_paper_pnl_dollars"]+
+        "\\n**Trades placed** "+str(data["trades_placed"])+
+        "\\n**W–L** "+str(data["wins"])+"–"+str(data["losses"])+
+        "\\n**Post-fee ROI** "+roi+
+        "\\n**Average CLV (closing ask minus entry ask)** "+clv+
+        "\\n**Pending** "+str(data["pending"])+
+        "\\n**Settlement dates (Central)** "+(", ".join(data["settlement_dates"]) or "N/A")+
         "\\n**Real orders:** 0"),"color":3447003}],
         "allowed_mentions":{"parse":[]}}
     try:
@@ -158,8 +184,8 @@ def run(*, now=None, schedule=official_slate, source=ledger,
         call=api, sender=send):
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(ET).date()
-    # Scan prior ET slates for late official settlements.
-    days = [today-timedelta(days=i) for i in range(0, 8)]
+    # Only consider completed calendar dates for quiet-slate reporting.
+    days = [today-timedelta(days=i) for i in range(1, 2)]
     finished = {}
     output = []
     for day in days:
@@ -197,6 +223,12 @@ def run(*, now=None, schedule=official_slate, source=ledger,
                              "post_fee_paper_pnl_dollars":str(sum(
                                  (Decimal(v["post_fee_paper_pnl_dollars"]) for v in values),
                                  Decimal("0")).quantize(Decimal("0.01")))}
+                for field in ("trades_placed", "wins", "losses", "pending"):
+                    aggregate[field] = sum(v[field] for v in values)
+                for field in ("settled_cost", "clv_sum"):
+                    aggregate[field] = str(sum(Decimal(v[field]) for v in values))
+                aggregate["settlement_dates"] = sorted({
+                    day for value in values for day in value["settlement_dates"]})
                 output.append(publish_recap(kind, start.isoformat()+"_"+end.isoformat(),
                                             aggregate, call=call, sender=sender))
     return output
