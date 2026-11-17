@@ -47,7 +47,7 @@ jobs:
           since=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           if [[ "$TRIGGER" == '27 12 * * *' || "$INPUT_MODE" == recaps ]]; then
             mode=recaps
-            since=$(date -u -d '39 days ago' +%Y-%m-%dT%H:%M:%SZ)
+            since=$(date -u -d '45 days ago' +%Y-%m-%dT%H:%M:%SZ)
           fi
           echo "NFL_MODE=$mode" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/nfl-atd"
@@ -65,8 +65,10 @@ jobs:
           download nfl-atd-t90-shadow.yml nfl-atd-shadow ">$since"
           if [[ "$mode" == recaps ]]; then
             # Split queries to stay below the Actions API search result cap.
-            for offset in 0 7 14 21 28 35; do
-              start=$(date -u -d "$((offset+7)) days ago" +%Y-%m-%d)
+            for offset in 0 7 14 21 28 35 42; do
+              older=$((offset+7))
+              if (( older > 45 )); then older=45; fi
+              start=$(date -u -d "$older days ago" +%Y-%m-%d)
               end=$(date -u -d "$offset days ago" +%Y-%m-%d)
               download nfl-atd-scheduled-settlement.yml nfl-atd-settle "$start..$end"
             done

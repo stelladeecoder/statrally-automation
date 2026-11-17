@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from nfl_atd_paper_discord import decisions, deliver, periods, run_picks, run_recaps, settle_rows
+from nfl_atd_paper_discord import decisions, deliver, periods, retained_history_start, run_picks, run_recaps, settle_rows
 
 NOW = datetime(2026, 11, 27, 12, tzinfo=timezone.utc)
 ENTRY = {"fixture_id":"2026w11-IND-HOU","player_id":"00-0000001",
@@ -51,6 +51,19 @@ class NflDiscordTest(unittest.TestCase):
         self.assertIn("Settlement dates 2026-11-20", daily[3])
         self.assertIn("W–L 1–0", daily[3])
         self.assertIn("$0.48", daily[3])
+
+    def test_full_month_fits_retained_history(self):
+        now = datetime(2026, 12, 7, 12, tzinfo=timezone.utc)
+        oldest = retained_history_start(now)
+        self.assertEqual(oldest.isoformat(), "2026-10-24")
+        rows = [("fixture", datetime(2026, 11, 1).date(), None, None)]
+        sent = []
+        run_recaps(rows, now, publish=lambda *args: sent.append(args), history_start=oldest)
+        self.assertTrue(any("Monthly | 2026-11-30" in row[2] for row in sent))
+        sent.clear()
+        run_recaps(rows, now, publish=lambda *args: sent.append(args),
+                   history_start=datetime(2026, 11, 2).date())
+        self.assertFalse(any("Monthly" in row[2] for row in sent))
 
     def test_reservation_prevents_duplicate_webhook_posts(self):
         issues, sent = [], []
