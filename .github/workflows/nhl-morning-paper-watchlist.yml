@@ -27,12 +27,12 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s tests -p test_nhl_morning_watchlist.py -v
-      - name: Load verified slate and post to NHL picks
+      - name: Load verified slate and post to NHL watchlist
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
           STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
-          STATRALLY_NHL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NHL_PICKS_WEBHOOK }}
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
           STATRALLY_NHL_PAPER_ONLY: 'true'
         run: |
           repo=stelladeecoder/statrally-even-odd-models
