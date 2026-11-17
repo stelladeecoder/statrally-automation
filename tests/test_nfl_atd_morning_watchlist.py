@@ -32,8 +32,7 @@ class NFLMorningWatchlistTest(unittest.TestCase):
     def test_zero_games_still_renders_complete_slate(self):
         data = slate()
         data["fixtures"] = []
-        payload = render(data, NOW)
-        self.assertIn("No NFL games scheduled", payload["embeds"][0]["description"])
+        self.assertIsNone(render(data, NOW))
 
     def test_unmatched_and_inactive_are_fail_closed(self):
         player = {"player_id": "p1", "name": "Player One",

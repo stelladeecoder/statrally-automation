@@ -25,7 +25,7 @@ class PaperDeliveryTests(unittest.TestCase):
             "https://discord.com/api/webhooks/test", {"content": "paper"},
             opener=lambda request, timeout: (requests.append(request) or Response()))
         self.assertEqual(message_id, "123456789012345678")
-        self.assertEqual(requests[0].get_header("User-agent"), "StatRally/0.1")
+        self.assertEqual(requests[0].get_header("User-agent"), "StatRally-Monitor/1")
 
     def entry(self):
         start = datetime.now(timezone.utc) + timedelta(minutes=50)

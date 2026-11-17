@@ -193,7 +193,7 @@ def send(webhook, payload, *, opener=urlopen):
     request = Request(webhook + ("&" if "?" in webhook else "?") + "wait=true",
                       data=json.dumps(payload).encode(), method="POST",
                       headers={"Content-Type": "application/json",
-                               "User-Agent": "StatRally/0.1"})
+                               "User-Agent": "StatRally-Monitor/1"})
     with opener(request, timeout=20) as response:
         if response.status != 200:
             raise ValueError("Discord did not acknowledge delivery")

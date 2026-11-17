@@ -20,7 +20,7 @@ class MorningWatchlistTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             render(data, now)
         data["fixtures"] = []
-        self.assertIn("No NHL games scheduled", render(data, now)["embeds"][0]["description"])
+        self.assertIsNone(render(data, now))
         data["date_central"] = "2026-11-15"
         with self.assertRaises(ValueError):
             render(data, now)

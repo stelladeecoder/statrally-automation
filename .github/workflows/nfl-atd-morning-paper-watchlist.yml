@@ -37,6 +37,16 @@ jobs:
         run: |
           repo=stelladeecoder/statrally-even-odd-models
           run_id=$(gh run list --repo "$repo" --workflow nfl-atd-morning-watchlist-source.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-          [[ "$run_id" =~ ^[0-9]+$ ]]
-          gh run download "$run_id" --repo "$repo" --name nfl-atd-morning-watchlist --dir "$RUNNER_TEMP/nfl-morning"
+          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "No verified NFL producer run; no game-day artifact delivered"
+            exit 0
+          fi
+          if ! gh run download "$run_id" --repo "$repo" --name nfl-atd-morning-watchlist --dir "$RUNNER_TEMP/nfl-morning"; then
+            echo "NFL producer artifact unavailable; no delivery"
+            exit 0
+          fi
+          if [[ ! -s "$RUNNER_TEMP/nfl-morning/nfl-atd-morning-watchlist.json" ]]; then
+            echo "NFL producer artifact missing; no delivery"
+            exit 0
+          fi
           python src/nfl_atd_morning_watchlist.py "$RUNNER_TEMP/nfl-morning/nfl-atd-morning-watchlist.json"

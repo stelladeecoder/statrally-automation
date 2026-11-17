@@ -71,13 +71,13 @@ def render(data, now):
             "value": (f"Start {start:%I:%M %p %Z} | Planned entry T-90 "
                       f"({entry:%I:%M %p %Z})\n" + "\n".join(lines)),
         })
+    if not fields:
+        return None
     if len(fields) > 25:
         raise ValueError("NFL slate exceeds Discord embed capacity")
     return {"embeds": [{
         "title": f"[PAPER WATCHLIST] NFL ATD | {day}",
-        "description": ("Kalshi | Active-player ATD contracts | $0 real orders"
-                        if fields else
-                        "Kalshi | No NFL games scheduled | $0 real orders"),
+        "description": "Kalshi | Active-player ATD contracts | $0 real orders",
         "color": 3447003, "fields": fields,
     }], "allowed_mentions": {"parse": []}}
 
@@ -87,6 +87,9 @@ def main(path):
         raise ValueError("Paper-only mode required")
     now = datetime.now(CENTRAL)
     payload = render(json.loads(Path(path).read_text()), now)
+    if payload is None:
+        print("No NFL games scheduled; no delivery")
+        return
     webhook = os.environ["STATRALLY_NFL_PICKS_WEBHOOK"]
     if not webhook:
         raise ValueError("NFL picks webhook missing")
