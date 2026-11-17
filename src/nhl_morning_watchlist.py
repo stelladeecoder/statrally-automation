@@ -48,7 +48,7 @@ def render(data, now):
     if len(fields) > 25:
         raise ValueError("NHL slate exceeds Discord embed capacity")
     return {"embeds":[{"title": f"[PAPER WATCHLIST] NHL Moneyline | {day}",
-                       "description":"Kalshi | $0 real orders", "color":3447003,
+                       "description":"Kalshi | $0 real orders",
                        "fields":fields}],"allowed_mentions":{"parse":[]}}
 
 
@@ -58,7 +58,7 @@ def main(path):
     now = datetime.now(CENTRAL)
     payload = render(json.loads(Path(path).read_text()), now)
     if payload is None:
-        print("No NHL games scheduled")
+        print("No NHL games scheduled; no delivery")
         return
     webhook = os.environ["STATRALLY_NHL_PICKS_WEBHOOK"]
     if not webhook:

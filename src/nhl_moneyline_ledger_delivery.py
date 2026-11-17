@@ -171,8 +171,8 @@ def candidates(*, now=None, call=api):
             yield "results", entry, stages
 
 
-def reserve(key, *, call=api):
-    title = "NHL PAPER Discord | " + key
+def reserve(key, *, call=api, title_prefix="NHL PAPER Discord | "):
+    title = title_prefix + key
     issues = pages(PUBLIC, "/issues?state=all", call=call)
     matches = [i for i in issues if i.get("title") == title and "pull_request" not in i]
     if matches:
@@ -192,10 +192,12 @@ def send(webhook, payload, *, opener=urlopen):
         raise ValueError("Invalid Discord webhook URL")
     request = Request(webhook + ("&" if "?" in webhook else "?") + "wait=true",
                       data=json.dumps(payload).encode(), method="POST",
-                      headers={"Content-Type": "application/json"})
+                      headers={"Content-Type": "application/json",
+                               "User-Agent": "StatRally-Monitor/1"})
     with opener(request, timeout=20) as response:
-        if response.status not in (200, 204):
+        if response.status != 200:
             raise ValueError("Discord did not acknowledge delivery")
+        print(f"Discord delivery HTTP {response.status}")
         body = response.read()
         obj = json.loads(body) if body else {}
         if not str(obj.get("id", "")).isdigit():

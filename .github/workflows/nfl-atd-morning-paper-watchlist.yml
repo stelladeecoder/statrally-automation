@@ -1,0 +1,52 @@
+name: NFL ATD morning paper watchlist
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/nfl-atd-morning-paper-watchlist.yml'
+      - 'src/nfl_atd_morning_watchlist.py'
+      - 'tests/test_nfl_atd_morning_watchlist.py'
+  schedule:
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nfl-atd-morning-paper-watchlist
+  cancel-in-progress: false
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p test_nfl_atd_morning_watchlist.py -v
+      - name: Load verified slate and post to NFL picks
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          STATRALLY_NFL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NFL_PICKS_WEBHOOK }}
+          STATRALLY_NFL_PAPER_ONLY: 'true'
+        run: |
+          repo=stelladeecoder/statrally-even-odd-models
+          run_id=$(gh run list --repo "$repo" --workflow nfl-atd-morning-watchlist-source.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "No verified NFL producer run; no game-day artifact delivered"
+            exit 1
+          fi
+          if ! gh run download "$run_id" --repo "$repo" --name nfl-atd-morning-watchlist --dir "$RUNNER_TEMP/nfl-morning"; then
+            echo "NFL producer artifact unavailable; no delivery"
+            exit 1
+          fi
+          if [[ ! -s "$RUNNER_TEMP/nfl-morning/nfl-atd-morning-watchlist.json" ]]; then
+            echo "NFL producer artifact missing; no delivery"
+            exit 1
+          fi
+          python src/nfl_atd_morning_watchlist.py "$RUNNER_TEMP/nfl-morning/nfl-atd-morning-watchlist.json"
