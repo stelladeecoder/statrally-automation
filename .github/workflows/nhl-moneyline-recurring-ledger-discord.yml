@@ -31,8 +31,7 @@ jobs:
           STATRALLY_NHL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NHL_PICKS_WEBHOOK }}
           STATRALLY_NHL_RESULTS_WEBHOOK: ${{ secrets.STATRALLY_NHL_RESULTS_WEBHOOK }}
         run: python src/nhl_moneyline_ledger_delivery.py
-      - name: Publish complete NHL ET slate recaps only
-        if: false # Issue #193 locked until verified first lifecycle and Discord receipts
+      - name: Publish verified NHL Moneyline paper recaps
         env:
           STATRALLY_NHL_PAPER_ONLY: "true"
           STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}

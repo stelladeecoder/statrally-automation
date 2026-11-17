@@ -36,25 +36,6 @@ jobs:
         env:
           PYTHONPATH: src
         run: python -m unittest discover -s tests -p test_parity_recaps.py -v
-      - name: Grade archived picks and publish Discord recaps
-        env:
-          PYTHONPATH: src
-          GH_TOKEN: ${{ github.token }}
-          STATRALLY_DAILY_RESULTS_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_DAILY_RESULTS_DISCORD_WEBHOOK }}
-          STATRALLY_WEEKLY_RECAP_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_WEEKLY_RECAP_DISCORD_WEBHOOK }}
-          STATRALLY_MONTHLY_RECAP_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_MONTHLY_RECAP_DISCORD_WEBHOOK }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
-            python - <<'PY' > "$RUNNER_TEMP/recap-hour"
-          from datetime import datetime
-          from zoneinfo import ZoneInfo
-          print(datetime.now(ZoneInfo("America/Chicago")).hour)
-          PY
-            if [ "$(cat "$RUNNER_TEMP/recap-hour")" != 20 ]; then
-              exit 0
-            fi
-          fi
-          python src/parity_recaps.py
       - name: Post individual Even/Odd results
         if: ${{ !cancelled() }}
         env:
