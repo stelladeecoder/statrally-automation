@@ -15,4 +15,4 @@ state.
 
 The consumer deliberately does not fabricate a slate. If the private workflow
 has no successful run, the artifact cannot be downloaded, or the expected file
-is absent, the scheduled job exits successfully without a Discord post.
+is absent, the scheduled job fails visibly without a Discord post.
