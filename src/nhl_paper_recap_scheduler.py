@@ -11,6 +11,8 @@ from nhl_moneyline_ledger_delivery import (
 )
 
 ET = ZoneInfo("America/New_York")
+CT = ZoneInfo("America/Chicago")
+FIRST_RECAP = datetime(2026, 11, 16).date()
 BASE = "https://api-web.nhle.com/v1/schedule/"
 
 
@@ -81,33 +83,25 @@ def ledger(*, call=api):
     return by_game
 
 
-def completed(day, *, schedule=official_slate, source=ledger):
-    scheduled = schedule(day)
-    if not scheduled:
-        return None
-    data = source()
+def qualified_trades(data, now):
     tickers = set()
-    games = set()
-    dates = set()
-    placed = pending = wins = losses = 0
-    pnl = cost = clv = Decimal("0")
-    for fixture in scheduled:
-        for stages in data.get((day, fixture), []):
+    for (_, fixture), contracts in data.items():
+        for stages in contracts:
             entry = stages.get("entry")
             if not entry or entry.get("signal") != "BUY_YES":
                 continue
-            eligible(entry)
+            eligible(entry, now=now)
             ticker = entry["market_ticker"]
             if ticker in tickers or entry["fixture_id"] != fixture:
                 raise ValueError("Duplicate or mismatched qualified paper entry")
             tickers.add(ticker)
-            placed += 1
+            entry_day = stamp(entry["observed_utc"]).astimezone(CT).date()
             settlement = stages.get("settlement")
             if settlement is None:
-                pending += 1
+                yield fixture, entry_day, None, None
                 continue
             close = stages.get("close")
-            eligible(entry, close, settlement)
+            eligible(entry, close, settlement, now=now)
             result = settlement.get("winning_team")
             if (settlement.get("paper_only") is not True
                 or settlement.get("orders_placed") != 0
@@ -124,19 +118,26 @@ def completed(day, *, schedule=official_slate, source=ledger):
                 or fee != Decimal(str(settlement["scheduled_paper_fee_dollars"]))
                 or net != (int(result == "yes") - entry_price - fee).quantize(Decimal("0.01"))):
                 raise ValueError("Inconsistent settlement evidence")
-            dates.add(settled.astimezone(ZoneInfo("America/Chicago")).date().isoformat())
-            games.add(fixture)
-            wins += result == "yes"
-            losses += result == "no"
-            pnl += net
-            cost += entry_price + fee
-            clv += close_price - entry_price
-    return {"slate_date": day.isoformat(), "scheduled_slate_games": len(scheduled),
-            "settled_slate_games": len(games), "settled_contracts": wins + losses,
-            "trades_placed": placed, "wins": wins, "losses": losses, "pending": pending,
-            "settlement_dates": sorted(dates), "settled_cost": str(cost), "clv_sum": str(clv),
-            "post_fee_paper_pnl_dollars": f"{pnl:.2f}", "paper_only": True,
-            "orders_placed": 0}
+
+            yield fixture, entry_day, settled.astimezone(CT).date(), (
+                result == "yes", net, entry_price + fee, close_price - entry_price)
+
+
+def summarize(rows, start, end, scheduled_games):
+    settled = [row for row in rows if row[2] is not None and start <= row[2] <= end]
+    wins = sum(row[3][0] for row in settled)
+    pnl, cost, clv = (sum((row[3][index] for row in settled), Decimal("0"))
+                      for index in (1, 2, 3))
+    return {"scheduled_slate_games": scheduled_games,
+            "settled_slate_games": len({row[0] for row in settled}),
+            "settled_contracts": len(settled),
+            "trades_placed": sum(start <= placed <= end for _, placed, _, _ in rows),
+            "wins": wins, "losses": len(settled) - wins,
+            "pending": sum(placed <= end and (day is None or day > end)
+                           for _, placed, day, _ in rows),
+            "settlement_dates": sorted({row[2].isoformat() for row in settled}),
+            "settled_cost": str(cost), "clv_sum": str(clv),
+            "post_fee_paper_pnl_dollars": f"{pnl:.2f}"}
 
 
 def publish_recap(kind, key, data, *, call=api, sender=send):
@@ -180,57 +181,25 @@ def publish_recap(kind, key, data, *, call=api, sender=send):
     return {"key":reservation,"status":"CONFIRMED"}
 
 
-def run(*, now=None, schedule=official_slate, source=ledger,
-        call=api, sender=send):
+def run(*, now=None, schedule=official_slate, source=ledger, call=api, sender=send):
     now = now or datetime.now(timezone.utc)
-    today = now.astimezone(ET).date()
-    # Only consider completed calendar dates for quiet-slate reporting.
-    days = [today-timedelta(days=i) for i in range(1, 2)]
-    finished = {}
+    end = now.astimezone(CT).date() - timedelta(days=1)
+    if end < FIRST_RECAP:
+        return []
+    rows = list(qualified_trades(source(), now))
+    periods = [("daily", end)]
+    if end.weekday() == 5:
+        periods.append(("weekly", end - timedelta(days=6)))
+    if (end + timedelta(days=1)).day == 1:
+        periods.append(("monthly", end.replace(day=1)))
     output = []
-    for day in days:
-        value = completed(day, schedule=schedule, source=source)
-        if value is None:
-            continue
-        finished[day] = value
-        output.append(publish_recap("daily", day.isoformat(), value,
-                                    call=call, sender=sender))
-    # Only publish a weekly or monthly report after the entire period ends.
-    # Require all scheduled slates, including zero-game dates, to be checked.
-    for kind in ("weekly", "monthly"):
-        end = today-timedelta(days=1)
-        if kind == "weekly":
-            end -= timedelta(days=(end.weekday()+2)%7)
-            start = end-timedelta(days=6)
-        else:
-            end = today.replace(day=1)-timedelta(days=1)
-            start = end.replace(day=1)
-        period = [start+timedelta(days=i) for i in range((end-start).days+1)]
-        values = []
-        for day in period:
-            scheduled = schedule(day)
-            if not scheduled:
-                continue
-            item = finished.get(day) or completed(day, schedule=schedule, source=source)
-            if item is None:
-                break
-            values.append(item)
-        else:
-            if values:
-                aggregate = {"scheduled_slate_games":sum(v["scheduled_slate_games"] for v in values),
-                             "settled_slate_games":sum(v["settled_slate_games"] for v in values),
-                             "settled_contracts":sum(v["settled_contracts"] for v in values),
-                             "post_fee_paper_pnl_dollars":str(sum(
-                                 (Decimal(v["post_fee_paper_pnl_dollars"]) for v in values),
-                                 Decimal("0")).quantize(Decimal("0.01")))}
-                for field in ("trades_placed", "wins", "losses", "pending"):
-                    aggregate[field] = sum(v[field] for v in values)
-                for field in ("settled_cost", "clv_sum"):
-                    aggregate[field] = str(sum(Decimal(v[field]) for v in values))
-                aggregate["settlement_dates"] = sorted({
-                    day for value in values for day in value["settlement_dates"]})
-                output.append(publish_recap(kind, start.isoformat()+"_"+end.isoformat(),
-                                            aggregate, call=call, sender=sender))
+    for kind, start in periods:
+        days = (start + timedelta(days=offset) for offset in range((end - start).days + 1))
+        scheduled = sum(len(schedule(day)) for day in days)
+        data = summarize(rows, start, end, scheduled)
+        if scheduled or data["trades_placed"] or data["settled_contracts"]:
+            key = end.isoformat() if kind == "daily" else f"{start.isoformat()}_{end.isoformat()}"
+            output.append(publish_recap(kind, key, data, call=call, sender=sender))
     return output
 
 
