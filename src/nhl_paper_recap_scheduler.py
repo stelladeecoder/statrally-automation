@@ -157,18 +157,32 @@ def publish_recap(kind, key, data, *, call=api, sender=send):
     count = data["settled_contracts"]
     roi = f"{100 * payout / cost:.2f}%" if cost else "N/A"
     clv = f"{100 * Decimal(data['clv_sum']) / count:+.2f} pp" if count else "N/A"
-    payload = {"embeds":[{"title":"StatRally Multi-Sport Paper Recap | "+kind.upper()+" | "+key,
-        "description":("**NHL Moneyline | PAPER**\n**Soccer BTTS:** Inactive\n**Scheduled games:** "+str(data["scheduled_slate_games"])+
-        "\\n**Settled games:** "+str(data["settled_slate_games"])+
-        "\\n**Settled contracts:** "+str(data["settled_contracts"])+
-        "\\n**Post-fee PAPER P&L:** $"+data["post_fee_paper_pnl_dollars"]+
-        "\\n**Trades placed** "+str(data["trades_placed"])+
-        "\\n**W–L** "+str(data["wins"])+"–"+str(data["losses"])+
-        "\\n**Post-fee ROI** "+roi+
-        "\\n**Average CLV (closing ask minus entry ask)** "+clv+
-        "\\n**Pending** "+str(data["pending"])+
-        "\\n**Settlement dates (Central)** "+(", ".join(data["settlement_dates"]) or "N/A")+
-        "\\n**Real orders:** 0"),"color":3447003}],
+    wins, losses = data["wins"], data["losses"]
+    record = f"{wins}W / {losses}L"
+    percentage = f" · **{100 * wins / count:.1f}%**" if count else " · N/A"
+    def display_day(value):
+        day = datetime.fromisoformat(value)
+        return f"{day:%A, %B} {day.day}"
+    if key == "SYNTHETIC":
+        period = "Synthetic period"
+    else:
+        period = " to ".join(display_day(value) for value in key.split("_"))
+    signed_pnl = f"{'+' if payout > 0 else '-' if payout < 0 else ''}${abs(payout):.2f}"
+    description = "\n".join([
+        period + " · Central Time", "",
+        f"**Combined** · {record}{percentage}",
+        f"🏒 **NHL Moneyline** · {record}{percentage}",
+        "🏈 **NFL Anytime TD** · Not included in this recap",
+        "⚽ **Soccer BTTS** · Inactive", "",
+        "**💰 PAPER PERFORMANCE**",
+        f"**Post-fee PAPER P&L:** {signed_pnl}",
+        f"**ROI:** {roi}",
+        f"**Average CLV:** {clv}",
+        f"**Trades:** {data['trades_placed']} · **Pending:** {data['pending']}",
+        "Real orders: 0",
+    ])
+    payload = {"embeds":[{"title":f"StatRally · {kind.title()} Recap",
+        "description":description,"color":3447003}],
         "allowed_mentions":{"parse":[]}}
     try:
         message_id = sender(webhook, payload)
