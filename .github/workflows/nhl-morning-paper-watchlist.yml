@@ -6,7 +6,8 @@ on:
       - 'src/nhl_morning_watchlist.py'
       - 'tests/test_nhl_morning_watchlist.py'
   schedule:
-    - cron: '0 15 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 12 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,12 +28,15 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s tests -p test_nhl_morning_watchlist.py -v
-      - name: Load verified slate and post to NHL picks
-        if: github.ref == 'refs/heads/main'
+      - name: Central schedule guard
+        id: clock
+        run: echo "due=$(if [[ $(TZ=America/Chicago date +%H) == 06 ]]; then echo true; else echo false; fi)" >> "$GITHUB_OUTPUT"
+      - name: Load verified slate and post to NHL watchlist
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'schedule' || steps.clock.outputs.due == 'true')
         env:
           GH_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
           STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
-          STATRALLY_NHL_PICKS_WEBHOOK: ${{ secrets.STATRALLY_NHL_PICKS_WEBHOOK }}
+          STATRALLY_NHL_WATCHLIST_WEBHOOK: ${{ secrets.STATRALLY_NHL_WATCHLIST_WEBHOOK }}
           STATRALLY_NHL_PAPER_ONLY: 'true'
         run: |
           repo=stelladeecoder/statrally-even-odd-models
