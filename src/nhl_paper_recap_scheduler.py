@@ -1,4 +1,5 @@
 """Preview verified NHL paper trade summaries for each official slate."""
+import hashlib
 import json
 import os
 from collections import defaultdict
@@ -143,7 +144,8 @@ def summarize(rows, start, end, scheduled_games):
 def publish_recap(kind, key, data, *, call=api, sender=send):
     if kind not in ("daily", "weekly", "monthly"):
         raise ValueError("Unknown recap")
-    reservation = "sport=nhl | " + key + " | " + kind + "_recap"
+    revision = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]
+    reservation = f"sport=nhl | {key} | {kind}_recap | {revision}"
     issue = reserve(reservation, call=call)
     if issue is None:
         return {"key": reservation, "status": "already_reserved"}
@@ -187,18 +189,27 @@ def run(*, now=None, schedule=official_slate, source=ledger, call=api, sender=se
     if end < FIRST_RECAP:
         return []
     rows = list(qualified_trades(source(), now))
-    periods = [("daily", end)]
-    if end.weekday() == 5:
-        periods.append(("weekly", end - timedelta(days=6)))
-    if (end + timedelta(days=1)).day == 1:
-        periods.append(("monthly", end.replace(day=1)))
+    first = max(FIRST_RECAP, end - timedelta(days=6))
+    periods = []
+    for offset in range((end - first).days + 1):
+        day = first + timedelta(days=offset)
+        periods.append(("daily", day, day))
+        if day.weekday() == 5:
+            periods.append(("weekly", day - timedelta(days=6), day))
+        if (day + timedelta(days=1)).day == 1:
+            periods.append(("monthly", day.replace(day=1), day))
     output = []
-    for kind, start in periods:
-        days = (start + timedelta(days=offset) for offset in range((end - start).days + 1))
-        scheduled = sum(len(schedule(day)) for day in days)
-        data = summarize(rows, start, end, scheduled)
+    schedule_counts = {}
+    for kind, start, finish in periods:
+        days = (start + timedelta(days=offset) for offset in range((finish - start).days + 1))
+        scheduled = 0
+        for day in days:
+            if day not in schedule_counts:
+                schedule_counts[day] = len(schedule(day))
+            scheduled += schedule_counts[day]
+        data = summarize(rows, start, finish, scheduled)
         if scheduled or data["trades_placed"] or data["settled_contracts"]:
-            key = end.isoformat() if kind == "daily" else f"{start.isoformat()}_{end.isoformat()}"
+            key = finish.isoformat() if kind == "daily" else f"{start.isoformat()}_{finish.isoformat()}"
             output.append(publish_recap(kind, key, data, call=call, sender=sender))
     return output
 
