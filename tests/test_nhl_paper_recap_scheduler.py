@@ -29,11 +29,14 @@ class CompleteSlateTests(unittest.TestCase):
         self.assertEqual(result["status"],"CONFIRMED")
         self.assertEqual(len(sent),1)
         embed=sent[0][1]["embeds"][0]
-        self.assertIn("StatRally Multi-Sport Paper Recap",embed["title"])
-        self.assertIn("NHL Moneyline | PAPER",embed["description"])
-        self.assertIn("Soccer BTTS:** Inactive",embed["description"])
+        self.assertEqual(embed["title"], "StatRally · Daily Recap")
+        self.assertIn("🏒 **NHL Moneyline** · 0W / 1L · **0.0%**",embed["description"])
+        self.assertIn("**Soccer BTTS** · Inactive",embed["description"])
         self.assertIn("Post-fee PAPER P&L",embed["description"])
-        self.assertIn("-0.20",embed["description"])
+        self.assertIn("-$0.20",embed["description"])
+        self.assertEqual(embed["color"], 3447003)
+        self.assertIn("Monday, November 16 · Central Time",embed["description"])
+        self.assertIn("**Combined** · 0W / 1L",embed["description"])
         self.assertNotIn("Even/Odd",str(embed))
         self.assertTrue(any("123456789012345678" in str(row) for row in api_calls))
         # Mock sender only: never calls a real Discord webhook or mutates production ledger.
