@@ -197,6 +197,7 @@ def send(webhook, payload, *, opener=urlopen):
     with opener(request, timeout=20) as response:
         if response.status != 200:
             raise ValueError("Discord did not acknowledge delivery")
+        print(f"Discord delivery HTTP {response.status}")
         body = response.read()
         obj = json.loads(body) if body else {}
         if not str(obj.get("id", "")).isdigit():
