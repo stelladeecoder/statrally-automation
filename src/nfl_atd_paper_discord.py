@@ -137,8 +137,11 @@ def run_picks(entries, now, *, publish=deliver):
                 "$0 real orders")
 
 
-def run_recaps(rows, now, *, publish=deliver):
+def run_recaps(rows, now, *, publish=deliver, history_start=None):
     for kind, start, end in periods(now):
+        if history_start is not None and start < history_start:
+            print(f"Deferred NFL {kind} recap | complete settlement history unavailable for {start} through {end}")
+            continue
         data = summarize(rows, start, end, 0)
         if not (data["trades_placed"] or data["settled_contracts"] or data["pending"]):
             continue
@@ -167,7 +170,15 @@ def main(mode, directory):
         run_picks(entries, now)
     elif mode == "recaps":
         results = [json.loads(p.read_text()) for p in sorted(root.glob("*/nfl_atd_settlements.json"))]
-        run_recaps(settle_rows(entries, results, now), now)
+        # Private settlement artifacts expire after 10 days. A whole Central
+        # date inside that window is eligible for revision.
+        history_start = now.astimezone(CENTRAL).date() - timedelta(days=9)
+        rows = settle_rows(entries, results, now)
+        # An older entry with no surviving settlement is ambiguous. Avoid
+        # counting an expired result as a pending trade.
+        if any(placed < history_start and settled is None for _, placed, settled, _ in rows):
+            raise ValueError("NFL recap requires durable settlement history for older decisions")
+        run_recaps(rows, now, history_start=history_start)
     else:
         raise ValueError("Unknown NFL delivery mode")
 
