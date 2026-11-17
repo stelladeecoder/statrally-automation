@@ -21,10 +21,48 @@ class PaperDeliveryTests(unittest.TestCase):
                 "model_forecast_created_utc": (observed - timedelta(minutes=1)).isoformat(),
                 "market_identity_verified": True, "snapshot_sha256": "abc",
                 "fixture_source_id": "def", "orderbook_source": "Kalshi",
-                "ask_dollars": "0.55"}
+                "ask_dollars": "0.55", "model_probability": "0.65",
+                "scheduled_paper_fee_dollars": "0.02", "post_fee_edge": "0.08",
+                "effective_fee_verified": True, "fee_exceptions_verified": True,
+                "account_fill_fee": None, "paper_fee_execution_assumption": "taker_crossing_ask",
+                "signal": "BUY_YES"}
 
     def test_valid_prospective_entry(self):
         self.assertTrue(delivery.eligible(self.entry()))
+
+    def test_no_bet_and_unverified_fee_rejected(self):
+        for signal in ("NO_BET", "NO_BET_EFFECTIVE_FEE_UNCONFIRMED", None):
+            row = self.entry()
+            row["signal"] = signal
+            with self.assertRaises(ValueError):
+                delivery.eligible(row)
+        row = self.entry()
+        row["effective_fee_verified"] = False
+        with self.assertRaises(ValueError):
+            delivery.eligible(row)
+
+    def test_reject_inconsistent_edge(self):
+        row = self.entry()
+        row["post_fee_edge"] = "0.10"
+        with self.assertRaises(ValueError):
+            delivery.eligible(row)
+
+    def test_qualified_pick_card_label(self):
+        calls = []
+        def api(method, repo, path, data=None):
+            if method == "GET":
+                return []
+            if method == "POST" and path == "/issues":
+                return {"number": 99}
+            return {"id": 42}
+        def sender(webhook, payload):
+            calls.append(payload)
+            return "123456789"
+        with patch.dict("os.environ", {"STATRALLY_NHL_PICKS_WEBHOOK":
+                                      "https://discord.com/api/webhooks/test"}, clear=False):
+            result = delivery.publish("picks", self.entry(), {}, call=api, sender=sender)
+        self.assertEqual(result["state"], "CONFIRMED")
+        self.assertIn("[PAPER TRADE]", calls[0]["embeds"][0]["description"])
 
     def test_reject_backdated_entry(self):
         row = self.entry()
