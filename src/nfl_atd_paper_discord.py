@@ -13,6 +13,7 @@ from nhl_moneyline_ledger_delivery import PUBLIC, RECEIPT, api, reserve, send, s
 from nhl_paper_recap_scheduler import summarize
 
 CENTRAL = ZoneInfo("America/Chicago")
+SETTLEMENT_RETENTION_DAYS = 45
 TICKER = re.compile(r"KXNFLANYTD-[A-Z0-9-]+")
 PLAYER = re.compile(r"00-[0-9]{7}")
 FIXTURE = re.compile(r"20[0-9]{2}w[0-9]{1,2}-[A-Z]{2,3}-[A-Z]{2,3}")
@@ -137,6 +138,11 @@ def run_picks(entries, now, *, publish=deliver):
                 "$0 real orders")
 
 
+def retained_history_start(now):
+    """Exclude the oldest Central date when retention may cover only part of it."""
+    return now.astimezone(CENTRAL).date() - timedelta(days=SETTLEMENT_RETENTION_DAYS - 1)
+
+
 def run_recaps(rows, now, *, publish=deliver, history_start=None):
     for kind, start, end in periods(now):
         if history_start is not None and start < history_start:
@@ -170,9 +176,7 @@ def main(mode, directory):
         run_picks(entries, now)
     elif mode == "recaps":
         results = [json.loads(p.read_text()) for p in sorted(root.glob("*/nfl_atd_settlements.json"))]
-        # Private settlement artifacts expire after 10 days. A whole Central
-        # date inside that window is eligible for revision.
-        history_start = now.astimezone(CENTRAL).date() - timedelta(days=9)
+        history_start = retained_history_start(now)
         rows = settle_rows(entries, results, now)
         # An older entry with no surviving settlement is ambiguous. Avoid
         # counting an expired result as a pending trade.
