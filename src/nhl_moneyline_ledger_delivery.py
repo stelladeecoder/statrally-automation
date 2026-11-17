@@ -162,6 +162,8 @@ def candidates(*, now=None, call=api):
         entry = stages.get("entry")
         if entry is None:
             continue
+        if entry.get("signal") not in ("BUY_YES", "QUALIFIED"):
+            continue  # NO BET is silent in picks, including unconfirmed fee.
         eligible(entry, now=now)
         yield "picks", entry, stages
         if "settlement" in stages:
