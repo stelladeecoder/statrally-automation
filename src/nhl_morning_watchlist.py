@@ -43,12 +43,11 @@ def render(data, now):
         fields.append({"name": f"{away} @ {home}",
                        "value": f"Start {start:%I:%M %p %Z} | Entry {opening:%I:%M %p}–{closing:%I:%M %p %Z}\n"
                                 + (", ".join(contracts) if verified else "No verified Kalshi contract")})
-    if not fields:
-        return None
     if len(fields) > 25:
         raise ValueError("NHL slate exceeds Discord embed capacity")
     return {"embeds":[{"title": f"[PAPER WATCHLIST] NHL Moneyline | {day}",
-                       "description":"Kalshi | $0 real orders", "color":3447003,
+                       "description": ("Kalshi | $0 real orders" if fields
+                                       else "Kalshi | No NHL games scheduled | $0 real orders"),
                        "fields":fields}],"allowed_mentions":{"parse":[]}}
 
 
@@ -57,9 +56,6 @@ def main(path):
         raise ValueError("Paper-only mode required")
     now = datetime.now(CENTRAL)
     payload = render(json.loads(Path(path).read_text()), now)
-    if payload is None:
-        print("No NHL games scheduled")
-        return
     webhook = os.environ["STATRALLY_NHL_PICKS_WEBHOOK"]
     if not webhook:
         raise ValueError("NHL picks webhook missing")

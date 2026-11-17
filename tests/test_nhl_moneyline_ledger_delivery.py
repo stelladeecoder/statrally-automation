@@ -10,6 +10,23 @@ import nhl_moneyline_ledger_delivery as delivery
 
 
 class PaperDeliveryTests(unittest.TestCase):
+    def test_discord_send_requires_numeric_200_receipt_and_standard_user_agent(self):
+        class Response:
+            status = 200
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self):
+                return b'{"id":"123456789012345678"}'
+
+        requests = []
+        message_id = delivery.send(
+            "https://discord.com/api/webhooks/test", {"content": "paper"},
+            opener=lambda request, timeout: (requests.append(request) or Response()))
+        self.assertEqual(message_id, "123456789012345678")
+        self.assertEqual(requests[0].get_header("User-agent"), "StatRally/0.1")
+
     def entry(self):
         start = datetime.now(timezone.utc) + timedelta(minutes=50)
         observed = start - timedelta(minutes=50)
