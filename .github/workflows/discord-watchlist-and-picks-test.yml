@@ -1,0 +1,54 @@
+name: Discord WATCHLIST and TRADE PAPER presentation test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  send-test-only:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Send two synthetic cards to admin; verify HTTP 200 and IDs
+        env:
+          STATRALLY_ADMIN_DISCORD_WEBHOOK: ${{ secrets.STATRALLY_ADMIN_DISCORD_WEBHOOK }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+          from urllib.request import Request, urlopen
+          url=os.environ.get("STATRALLY_ADMIN_DISCORD_WEBHOOK","")
+          if not re.match(r"^https://(?:discord.com|discordapp.com)/api/webhooks/[0-9]+/[^/]+$",url):
+              raise SystemExit("Missing/invalid admin-only Discord webhook; no posts attempted")
+          cards=[
+            {"title":"[TEST / PAPER] WATCHLIST | NHL Moneyline",
+             "description":"**SYNTHETIC EXAMPLE, NOT A REAL FIXTURE OR MARKET**\n"
+               "**TEAM A @ TEAM B**\nPuck drop: 7:30 PM CST (sample)\n"
+               "Matched Kalshi contract: KXNHLGAME-EXAMPLE-TEAMA (FAKE)\n"
+               "Entry window: 6:30–6:45 PM CST (T−60 to T−45)\n"
+               "Slate shown even if zero picks qualify.\n"
+               "**PAPER ONLY | $0 real orders | TEST DATA**",
+             "color":3447003},
+            {"title":"[TEST / PAPER] TRADE | NHL Moneyline",
+             "description":"**SYNTHETIC EXAMPLE, NOT A REAL PICK OR MARKET**\n"
+               "TEAM A @ TEAM B\nContract: KXNHLGAME-EXAMPLE-TEAMA (FAKE)\n"
+               "Signal: BUY YES (synthetic)\nEntry ask: $0.55\n"
+               "Model probability: 64.0%\nScheduled paper taker fee: $0.02\n"
+               "Post-fee edge: +7.0 percentage points (0.64 - 0.55 - 0.02)\n"
+               "**PAPER TRADE | $0 real orders | TEST DATA**",
+             "color":1752220}
+          ]
+          for card in cards:
+              payload={"username":"StatRally PAPER Test","embeds":[card],
+                       "allowed_mentions":{"parse":[]}}
+              req=Request(url+"?wait=true",method="POST",
+                          headers={"Content-Type":"application/json"},
+                          data=json.dumps(payload).encode())
+              with urlopen(req,timeout=20) as response:
+                  status=response.status
+                  obj=json.load(response)
+              mid=str(obj.get("id",""))
+              if status != 200 or not re.fullmatch(r"[0-9]{15,22}",mid):
+                  raise SystemExit(f"Discord delivery not confirmed: HTTP {status}, valid ID={bool(mid)}")
+              print(f"{card['title']}: HTTP {status}; Discord message ID {mid}")
+          print("TEST ONLY: no production ledger writes, order APIs or subscriber stats")
+          PY
