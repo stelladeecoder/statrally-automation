@@ -1,19 +1,9 @@
-"""Official slate completeness: no off-day or partial-slate publication."""
+"""Verify recap delivery and Central settlement date accounting."""
 import unittest
 from unittest.mock import patch
 from datetime import date
 from decimal import Decimal
-from nhl_paper_recap_scheduler import completed, publish_recap
-
-
-def contract(game, ticker, pnl):
-    common={"fixture_id":game,"market_ticker":ticker}
-    return {"watchlist":{**common,"fixture_only":True,"market_identity_verified":True},
-            "entry":common,"close":common,
-            "settlement":{**common,"settlement_verified":True,"paper_only":True,
-                          "orders_placed":0,"account_fill_fee":None,
-                          "scheduled_paper_fee_dollars":"0.02",
-                          "post_fee_paper_pnl_dollars":pnl}}
+from nhl_paper_recap_scheduler import publish_recap, summarize
 
 
 class CompleteSlateTests(unittest.TestCase):
@@ -30,8 +20,9 @@ class CompleteSlateTests(unittest.TestCase):
         def sender(webhook,payload):
             sent.append((webhook,payload))
             return "123456789012345678"
-        data={"scheduled_slate_games":2,"settled_slate_games":2,
-              "settled_contracts":4,"post_fee_paper_pnl_dollars":"-0.20"}
+        day = date(2026, 11, 16)
+        data = summarize([("1", day, day, (False, Decimal("-0.20"),
+                          Decimal("0.20"), Decimal("0.04")))], day, day, 2)
         with patch.dict("os.environ",{"STATRALLY_NHL_DAILY_RECAP_WEBHOOK":
                        "https://discord.com/api/webhooks/TEST_ONLY"},clear=False):
             result=publish_recap("daily","2026-11-16",data,call=api,sender=sender)
@@ -45,23 +36,26 @@ class CompleteSlateTests(unittest.TestCase):
         self.assertTrue(any("123456789012345678" in str(row) for row in api_calls))
         # Mock sender only: never calls a real Discord webhook or mutates production ledger.
 
-    def test_off_day_no_recap(self):
-        self.assertIsNone(completed(date(2026,11,16),schedule=lambda d:set(),
-                                    source=lambda:{}))
-    def test_missing_game_no_recap(self):
-        d=date(2026,11,16)
-        rows={(d,"1"):[contract("1","KXNHLGAME-ONE-A","0.30"),
-                       contract("1","KXNHLGAME-ONE-B","-0.40")]}
-        self.assertIsNone(completed(d,schedule=lambda day:{"1","2"},source=lambda:rows))
-    def test_all_games_complete(self):
-        d=date(2026,11,16)
-        rows={(d,str(i)):[contract(str(i),f"KXNHLGAME-{i}-A","0.30"),
-                          contract(str(i),f"KXNHLGAME-{i}-B","-0.40")]
-              for i in (1,2)}
-        result=completed(d,schedule=lambda day:{"1","2"},source=lambda:rows)
-        self.assertEqual(result["settled_slate_games"],2)
-        self.assertEqual(result["settled_contracts"],4)
-        self.assertEqual(Decimal(result["post_fee_paper_pnl_dollars"]),Decimal("-0.20"))
+    def test_quiet_slate(self):
+        day = date(2026, 11, 16)
+        recap = summarize([], day, day, 2)
+        self.assertEqual(recap["trades_placed"], 0)
+        self.assertEqual(recap["settled_contracts"], 0)
+        self.assertEqual(recap["post_fee_paper_pnl_dollars"], "0.00")
+
+    def test_settlement_crosses_central_midnight(self):
+        entry = date(2026, 11, 16)
+        settlement = date(2026, 11, 17)
+        rows = [("1", entry, settlement,
+                 (True, Decimal("0.43"), Decimal("0.57"), Decimal("0.05")))]
+        before = summarize(rows, entry, entry, 8)
+        after = summarize(rows, settlement, settlement, 0)
+        self.assertEqual(before["pending"], 1)
+        self.assertEqual(before["settled_contracts"], 0)
+        self.assertEqual(after["pending"], 0)
+        self.assertEqual(after["wins"], 1)
+        self.assertEqual(after["settlement_dates"], ["2026-11-17"])
+        self.assertEqual(after["post_fee_paper_pnl_dollars"], "0.43")
 
 
 if __name__=="__main__":
