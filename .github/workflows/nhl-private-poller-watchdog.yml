@@ -1,0 +1,58 @@
+name: NHL private PAPER poller cross-repository watchdog
+on:
+  schedule:
+    # Offset from private five-minute cron to avoid simultaneous starts.
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 18-23 * * *"
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 0-9 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify private poller activity and dispatch only if stale
+        env:
+          GH_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
+          PRIVATE_REPO: stelladeecoder/statrally-even-odd-models
+          PRIVATE_WORKFLOW: nhl-moneyline-five-minute-paper-poller.yml
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          from datetime import datetime, timezone, timedelta
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          token=os.environ.get("GH_TOKEN")
+          if not token:
+              sys.exit("FAIL CLOSED: STATRALLY_NHL_LEDGER_TOKEN missing")
+          base="https://api.github.com/repos/"+os.environ["PRIVATE_REPO"]
+          headers={"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json",
+                   "X-GitHub-Api-Version":"2022-11-28","User-Agent":"statrally-paper-watchdog"}
+          def request(method,path,data=None):
+              payload=json.dumps(data).encode() if data is not None else None
+              with urlopen(Request(base+path,headers=headers,method=method,data=payload),timeout=20) as response:
+                  return json.load(response) if response.status != 204 else {}
+          name=os.environ["PRIVATE_WORKFLOW"]
+          runs=request("GET","/actions/workflows/"+name+"/runs?branch=main&per_page=25")
+          if not isinstance(runs.get("workflow_runs"),list):
+              sys.exit("FAIL CLOSED: missing private workflow run list")
+          now=datetime.now(timezone.utc)
+          recent=[]
+          for run in runs["workflow_runs"]:
+              if run.get("event") not in ("schedule","workflow_dispatch"):
+                  continue
+              if run.get("status") not in ("queued","in_progress","completed","waiting","requested","pending"):
+                  continue
+              when=run.get("created_at")
+              if not when:
+                  continue
+              dt=datetime.fromisoformat(when.replace("Z","+00:00"))
+              if timedelta(0) <= now-dt <= timedelta(minutes=7):
+                  recent.append(run["id"])
+          if recent:
+              print("Private poller already started recently; no duplicate dispatch:",recent[:3])
+          else:
+              request("POST","/actions/workflows/"+name+"/dispatches",{"ref":"main"})
+              print("Recovery dispatch requested; not proof of execution. Check private receipt.")
+          PY
