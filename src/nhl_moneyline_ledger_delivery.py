@@ -5,6 +5,7 @@ Never imports trading clients, backfills observations, or invents settlements.
 """
 import json
 import os
+from decimal import Decimal, InvalidOperation
 import re
 from datetime import datetime, timezone
 from urllib.request import Request, urlopen
@@ -61,6 +62,26 @@ def eligible(entry, close=None, settlement=None, *, now=None):
         or entry.get("stage") != "entry"
         or not TICKER.fullmatch(entry.get("market_ticker", ""))):
         raise ValueError("Untrusted paper entry")
+    # A real quote is not automatically an approved paper pick.
+    if entry.get("signal") not in ("BUY_YES", "QUALIFIED"):
+        raise ValueError("No approved paper pick signal")
+    if (entry.get("effective_fee_verified") is not True
+        or entry.get("fee_exceptions_verified") is not True
+        or entry.get("account_fill_fee", "missing") is not None
+        or entry.get("paper_fee_execution_assumption") != "taker_crossing_ask"):
+        raise ValueError("Unverified effective paper fee")
+    try:
+        edge = Decimal(str(entry["post_fee_edge"]))
+        fee = Decimal(str(entry["scheduled_paper_fee_dollars"]))
+        price = Decimal(str(entry["ask_dollars"]))
+        probability = Decimal(str(entry["model_probability"]))
+    except (KeyError, InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Missing or invalid paper edge inputs") from exc
+    if not (edge.is_finite() and fee.is_finite() and price.is_finite()
+            and probability.is_finite() and 0 < price < 1
+            and 0 < probability < 1 and fee >= 0
+            and edge > 0 and abs(edge - (probability - price - fee)) <= Decimal("0.000001")):
+        raise ValueError("Nonpositive or inconsistent post-fee paper edge")
     start, observed, forecast = map(stamp, (entry["game_start_utc"],
         entry["observed_utc"], entry["model_forecast_created_utc"]))
     if not (45 <= (start-observed).total_seconds()/60 <= 60
@@ -141,6 +162,8 @@ def candidates(*, now=None, call=api):
         entry = stages.get("entry")
         if entry is None:
             continue
+        if entry.get("signal") not in ("BUY_YES", "QUALIFIED"):
+            continue  # NO BET is silent in picks, including unconfirmed fee.
         eligible(entry, now=now)
         yield "picks", entry, stages
         if "settlement" in stages:
@@ -185,7 +208,7 @@ def publish(stage, entry, stages, *, call=api, sender=send):
     issue = reserve(key, call=call)
     if issue is None:
         return {"key": key, "state": "already_reserved"}
-    text = ("**NHL MONEYLINE [PAPER ONLY]**\\n"
+    text = ("**NHL MONEYLINE [PAPER TRADE]**\\n"
             + "**Contract:** \\u0060" + entry["market_ticker"] + "\\u0060\\n"
             + "**Fixture ID:** " + entry["fixture_id"] + "\\n"
             + "**Puck drop (UTC):** " + entry["game_start_utc"] + "\\n"

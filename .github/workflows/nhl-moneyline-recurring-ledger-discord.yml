@@ -32,7 +32,7 @@ jobs:
           STATRALLY_NHL_RESULTS_WEBHOOK: ${{ secrets.STATRALLY_NHL_RESULTS_WEBHOOK }}
         run: python src/nhl_moneyline_ledger_delivery.py
       - name: Publish complete NHL ET slate recaps only
-        if: github.event.schedule == '15 12 * * *' || github.event_name == 'workflow_dispatch'
+        if: false # Issue #193 locked until verified first lifecycle and Discord receipts
         env:
           STATRALLY_NHL_PAPER_ONLY: "true"
           STATRALLY_NHL_LEDGER_TOKEN: ${{ secrets.STATRALLY_NHL_LEDGER_TOKEN }}
