@@ -1,9 +1,9 @@
 """Verify recap delivery and Central settlement date accounting."""
 import unittest
 from unittest.mock import patch
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
-from nhl_paper_recap_scheduler import publish_recap, summarize
+from nhl_paper_recap_scheduler import publish_recap, run, summarize
 
 
 class CompleteSlateTests(unittest.TestCase):
@@ -35,6 +35,18 @@ class CompleteSlateTests(unittest.TestCase):
         self.assertNotIn("Even/Odd",str(embed))
         self.assertTrue(any("123456789012345678" in str(row) for row in api_calls))
         # Mock sender only: never calls a real Discord webhook or mutates production ledger.
+
+    def test_scheduler_revisits_a_previous_settlement_date(self):
+        day = date(2026, 11, 16)
+        rows = [("1", day, day,
+                 (True, Decimal("0.43"), Decimal("0.57"), Decimal("0.05")))]
+        with patch("nhl_paper_recap_scheduler.qualified_trades", return_value=rows), \
+             patch("nhl_paper_recap_scheduler.publish_recap") as publish:
+            run(now=datetime(2026, 11, 19, 12, tzinfo=timezone.utc),
+                schedule=lambda day: set(), source=dict)
+        publish.assert_called_once()
+        self.assertEqual(publish.call_args.args[:2], ("daily", "2026-11-16"))
+        self.assertEqual(publish.call_args.args[2]["wins"], 1)
 
     def test_quiet_slate(self):
         day = date(2026, 11, 16)
