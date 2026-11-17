@@ -5,6 +5,11 @@ on:
     - cron: "2,7,12,17,22,27,32,37,42,47,52,57 18-23 * * *"
     - cron: "2,7,12,17,22,27,32,37,42,47,52,57 0-9 * * *"
   workflow_dispatch:
+  pull_request:
+    paths: ['.github/workflows/nhl-private-poller-watchdog.yml']
+concurrency:
+  group: nhl-private-poller-watchdog-${{ github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -20,9 +25,21 @@ jobs:
         run: |
           python - <<'PY'
           import json, os, sys
+          from zoneinfo import ZoneInfo
           from datetime import datetime, timezone, timedelta
           from urllib.request import Request, urlopen
           from urllib.error import HTTPError
+          def fresh(observed, now):
+              instant = datetime.fromisoformat(observed.replace("Z", "+00:00"))
+              return timedelta(0) <= now - instant <= timedelta(seconds=360)
+
+          now = datetime.now(timezone.utc)
+          for age, expected in ((359, True), (360, True), (361, False)):
+              assert fresh((now - timedelta(seconds=age)).isoformat(), now) == expected
+          if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
+              sys.exit(0)
+          if os.environ.get("GITHUB_REF") != "refs/heads/main":
+              sys.exit("Watchdog dispatch requires main")
           token=os.environ.get("GH_TOKEN")
           if not token:
               sys.exit("FAIL CLOSED: STATRALLY_NHL_LEDGER_TOKEN missing")
@@ -37,22 +54,46 @@ jobs:
           runs=request("GET","/actions/workflows/"+name+"/runs?branch=main&per_page=25")
           if not isinstance(runs.get("workflow_runs"),list):
               sys.exit("FAIL CLOSED: missing private workflow run list")
-          now=datetime.now(timezone.utc)
-          recent=[]
-          for run in runs["workflow_runs"]:
-              if run.get("event") not in ("schedule","workflow_dispatch"):
-                  continue
-              if run.get("status") not in ("queued","in_progress","completed","waiting","requested","pending"):
-                  continue
-              when=run.get("created_at")
-              if not when:
-                  continue
-              dt=datetime.fromisoformat(when.replace("Z","+00:00"))
-              if timedelta(0) <= now-dt <= timedelta(minutes=7):
-                  recent.append(run["id"])
-          if recent:
-              print("Private poller already started recently; no duplicate dispatch:",recent[:3])
+          live = [run for run in runs["workflow_runs"]
+                  if run.get("head_branch") == "main"
+                  and run.get("event") in ("schedule", "workflow_dispatch")]
+          if any(run.get("event") == "workflow_dispatch"
+                 and run.get("status") in ("queued", "in_progress", "waiting", "requested", "pending")
+                 for run in live):
+              print("Recovery poll already queued or running")
+              sys.exit(0)
+          completed = {str(run["id"]) for run in live if run.get("conclusion") == "success"}
+          prefix = "statrally-nhl-moneyline-poller-health-v1:"
+          central = ZoneInfo("America/Chicago")
+          dates = {instant.astimezone(central).date() for instant in
+                   (now, now - timedelta(seconds=360))}
+          titles = {"StatRally NHL Moneyline Poller Health | " + str(day) for day in dates}
+          since = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+          for page in range(1, 21):
+              issues = request("GET", f"/issues?state=all&since={since}&per_page=100&page={page}")
+              for issue in issues:
+                  if issue.get("title") not in titles or not issue.get("body", "").startswith(prefix):
+                      continue
+                  comments = request("GET", f"/issues/{issue['number']}/comments?since={since}&per_page=100")
+                  if len(comments) == 100:
+                      sys.exit("Too many recent poll receipts to verify")
+                  for comment in comments:
+                      body = comment.get("body", "")
+                      if not body.startswith(prefix):
+                          continue
+                      receipt = json.loads(body[len(prefix):])
+                      if (str(receipt.get("run_id")) in completed
+                          and receipt.get("workflow") == name
+                          and receipt.get("poll_status") == "complete"
+                          and receipt.get("paper_only") is True
+                          and receipt.get("orders_placed") == 0
+                          and fresh(receipt["observed_utc"], now)):
+                          print("Fresh successful Python poll receipt", receipt["run_id"])
+                          sys.exit(0)
+              if len(issues) < 100:
+                  break
           else:
-              request("POST","/actions/workflows/"+name+"/dispatches",{"ref":"main"})
-              print("Recovery dispatch requested; not proof of execution. Check private receipt.")
+              sys.exit("Too many updated issues to verify poll receipts")
+          request("POST","/actions/workflows/"+name+"/dispatches",{"ref":"main"})
+          print("Recovery dispatch requested. Await private Python receipt.")
           PY
