@@ -157,8 +157,8 @@ def publish_recap(kind, key, data, *, call=api, sender=send):
     count = data["settled_contracts"]
     roi = f"{100 * payout / cost:.2f}%" if cost else "N/A"
     clv = f"{100 * Decimal(data['clv_sum']) / count:+.2f} pp" if count else "N/A"
-    payload = {"embeds":[{"title":"StatRally NHL PAPER | "+kind.upper()+" | "+key,
-        "description":("**Scheduled games:** "+str(data["scheduled_slate_games"])+
+    payload = {"embeds":[{"title":"StatRally Multi-Sport Paper Recap | "+kind.upper()+" | "+key,
+        "description":("**NHL Moneyline | PAPER**\n**Soccer BTTS:** Inactive\n**Scheduled games:** "+str(data["scheduled_slate_games"])+
         "\\n**Settled games:** "+str(data["settled_slate_games"])+
         "\\n**Settled contracts:** "+str(data["settled_contracts"])+
         "\\n**Post-fee PAPER P&L:** $"+data["post_fee_paper_pnl_dollars"]+
