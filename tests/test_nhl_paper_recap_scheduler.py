@@ -29,7 +29,9 @@ class CompleteSlateTests(unittest.TestCase):
         self.assertEqual(result["status"],"CONFIRMED")
         self.assertEqual(len(sent),1)
         embed=sent[0][1]["embeds"][0]
-        self.assertIn("NHL PAPER",embed["title"])
+        self.assertIn("StatRally Multi-Sport Paper Recap",embed["title"])
+        self.assertIn("NHL Moneyline | PAPER",embed["description"])
+        self.assertIn("Soccer BTTS:** Inactive",embed["description"])
         self.assertIn("Post-fee PAPER P&L",embed["description"])
         self.assertIn("-0.20",embed["description"])
         self.assertNotIn("Even/Odd",str(embed))
